@@ -422,7 +422,12 @@ app.get("/", async (req, res) => {
 // =====================================================
 // INICIAR OAUTH DE MERCADO LIBRE
 // =====================================================
+app.post("/notifications", express.json(), (req, res) => {
+  console.log("📩 Notificación de Mercado Libre:");
+  console.log(JSON.stringify(req.body, null, 2));
 
+  res.sendStatus(200);
+});
 app.get("/auth/mercadolibre", (req, res) => {
 
   const authorizationUrl =
