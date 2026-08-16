@@ -854,7 +854,6 @@ app.post(
       "📩 Notificación de Mercado Libre:"
     );
 
-
     console.log(
       JSON.stringify(
         req.body,
@@ -863,12 +862,227 @@ app.post(
       )
     );
 
+    // -----------------------------------------
+    // Responder inmediatamente a Mercado Libre
+    // -----------------------------------------
 
-    // Mercado Libre espera una respuesta rápida
     res.sendStatus(200);
+
+    // -----------------------------------------
+    // Procesar la notificación después
+    // -----------------------------------------
+
+    processMercadoLibreNotification(
+      req.body
+    ).catch(
+      (error) => {
+        console.error(
+          "❌ Error procesando notificación:",
+          error
+        );
+      }
+    );
   }
 );
 
+
+// =====================================================
+// PROCESAR NOTIFICACIÓN DE MERCADO LIBRE
+// =====================================================
+
+async function processMercadoLibreNotification(
+  notification
+) {
+
+  // -----------------------------------------
+  // Validar notificación
+  // -----------------------------------------
+
+  if (!notification) {
+
+    console.log(
+      "⚠️ Notificación vacía."
+    );
+
+    return;
+  }
+
+
+  const topic =
+    notification.topic;
+
+  const resource =
+    notification.resource;
+
+  const userId =
+    notification.user_id;
+
+
+  console.log(
+    "Topic:",
+    topic
+  );
+
+  console.log(
+    "Resource:",
+    resource
+  );
+
+  console.log(
+    "User ID:",
+    userId
+  );
+
+
+  // -----------------------------------------
+  // Por ahora solo procesamos ITEMS
+  // -----------------------------------------
+
+  if (
+    topic !== "items"
+  ) {
+
+    console.log(
+      `ℹ️ Topic "${topic}" todavía no está implementado.`
+    );
+
+    return;
+  }
+
+
+  if (!resource) {
+
+    console.log(
+      "⚠️ La notificación no contiene resource."
+    );
+
+    return;
+  }
+
+
+  // -----------------------------------------
+  // Obtener información completa del item
+  // -----------------------------------------
+
+  console.log(
+    "🔎 Consultando item:",
+    resource
+  );
+
+
+  const item =
+    await mercadoLibreRequest(
+      resource
+    );
+
+
+  console.log(
+    "✅ Item obtenido:",
+    item.id
+  );
+
+
+  console.log(
+    "Título:",
+    item.title
+  );
+
+  console.log(
+    "Precio:",
+    item.price
+  );
+
+
+  // -----------------------------------------
+  // Guardar item en Supabase
+  // -----------------------------------------
+
+  const itemData = {
+
+    id:
+      item.id,
+
+    user_id:
+      userId,
+
+    title:
+      item.title ||
+      null,
+
+    price:
+      item.price ||
+      null,
+
+    currency_id:
+      item.currency_id ||
+      null,
+
+    condition:
+      item.condition ||
+      null,
+
+    status:
+      item.status ||
+      null,
+
+    category_id:
+      item.category_id ||
+      null,
+
+    permalink:
+      item.permalink ||
+      null,
+
+    thumbnail:
+      item.thumbnail ||
+      null,
+
+    available_quantity:
+      item.available_quantity ||
+      0,
+
+    sold_quantity:
+      item.sold_quantity ||
+      0,
+
+    raw_data:
+      item,
+
+    updated_at:
+      new Date().toISOString()
+  };
+
+
+  // -----------------------------------------
+  // Insertar / actualizar
+  // -----------------------------------------
+
+  await supabaseRequest(
+    "ml_items?on_conflict=id",
+    {
+
+      method:
+        "POST",
+
+      headers: {
+
+        Prefer:
+          "resolution=merge-duplicates,return=minimal"
+      },
+
+      body:
+        JSON.stringify(
+          itemData
+        )
+    }
+  );
+
+
+  console.log(
+    "💾 Item guardado en Supabase:",
+    item.id
+  );
+}
 
 // =====================================================
 // PRUEBA DEL ENDPOINT DE NOTIFICACIONES
