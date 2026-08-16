@@ -3,89 +3,429 @@ import express from "express";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==========================================
-// VARIABLES DE ENTORNO
-// ==========================================
+// =====================================================
+// CONFIGURACIÓN
+// =====================================================
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
 
-const MERCADOLIBRE_CLIENT_ID =
-  process.env.MERCADOLIBRE_CLIENT_ID;
-
+const MERCADOLIBRE_CLIENT_ID = process.env.MERCADOLIBRE_CLIENT_ID;
 const MERCADOLIBRE_CLIENT_SECRET =
   process.env.MERCADOLIBRE_CLIENT_SECRET;
-
 const MERCADOLIBRE_REDIRECT_URI =
   process.env.MERCADOLIBRE_REDIRECT_URI;
 
 
-// ==========================================
-// HOME
-// ==========================================
+// =====================================================
+// VALIDACIÓN DE VARIABLES
+// =====================================================
 
-app.get("/", async (req, res) => {
+console.log("======================================");
+console.log("FINDR BOT - INICIANDO");
+console.log("======================================");
+
+console.log("SUPABASE_URL:", SUPABASE_URL ? "OK" : "FALTA");
+console.log(
+  "SUPABASE_SECRET_KEY:",
+  SUPABASE_SECRET_KEY ? "OK" : "FALTA"
+);
+
+console.log(
+  "MERCADOLIBRE_CLIENT_ID:",
+  MERCADOLIBRE_CLIENT_ID ? "OK" : "FALTA"
+);
+
+console.log(
+  "MERCADOLIBRE_CLIENT_SECRET:",
+  MERCADOLIBRE_CLIENT_SECRET ? "OK" : "FALTA"
+);
+
+console.log(
+  "MERCADOLIBRE_REDIRECT_URI:",
+  MERCADOLIBRE_REDIRECT_URI ? "OK" : "FALTA"
+);
+
+console.log("======================================");
+
+
+// =====================================================
+// FUNCIONES SUPABASE
+// =====================================================
+
+async function supabaseRequest(endpoint, options = {}) {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/${endpoint}`,
+    {
+      ...options,
+      headers: {
+        apikey: SUPABASE_SECRET_KEY,
+        Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      }
+    }
+  );
+
+  const text = await response.text();
+
+  let data;
 
   try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
 
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/`,
+  if (!response.ok) {
+    throw new Error(
+      `Supabase ${response.status}: ${JSON.stringify(data)}`
+    );
+  }
+
+  return data;
+}
+
+
+// =====================================================
+// GUARDAR CUENTA DE MERCADO LIBRE
+// =====================================================
+
+async function saveMercadoLibreAccount(tokenData) {
+  const userId = tokenData.user_id;
+
+  if (!userId) {
+    throw new Error("Mercado Libre no devolvió user_id.");
+  }
+
+  // ---------------------------------------------------
+  // Buscamos si ya existe la cuenta
+  // ---------------------------------------------------
+
+  const existing = await supabaseRequest(
+    `mercadolibre_accounts?user_id=eq.${userId}&select=*`
+  );
+
+  const currentAccount =
+    Array.isArray(existing) && existing.length > 0
+      ? existing[0]
+      : null;
+
+  // ---------------------------------------------------
+  // Calculamos expiración
+  // ---------------------------------------------------
+
+  const expiresAt = new Date(
+    Date.now() + (tokenData.expires_in || 0) * 1000
+  ).toISOString();
+
+  const accountData = {
+    user_id: userId,
+    nickname: tokenData.nickname || currentAccount?.nickname || null,
+    access_token: tokenData.access_token,
+    refresh_token:
+      tokenData.refresh_token ||
+      currentAccount?.refresh_token ||
+      null,
+    expires_at: expiresAt
+  };
+
+  // ---------------------------------------------------
+  // UPDATE
+  // ---------------------------------------------------
+
+  if (currentAccount) {
+    await supabaseRequest(
+      `mercadolibre_accounts?user_id=eq.${userId}`,
+      {
+        method: "PATCH",
+        headers: {
+          Prefer: "return=minimal"
+        },
+        body: JSON.stringify(accountData)
+      }
+    );
+
+    console.log(
+      "Cuenta de Mercado Libre actualizada:",
+      userId
+    );
+
+    return;
+  }
+
+  // ---------------------------------------------------
+  // INSERT
+  // ---------------------------------------------------
+
+  await supabaseRequest(
+    "mercadolibre_accounts",
+    {
+      method: "POST",
+      headers: {
+        Prefer: "return=minimal"
+      },
+      body: JSON.stringify(accountData)
+    }
+  );
+
+  console.log(
+    "Nueva cuenta de Mercado Libre guardada:",
+    userId
+  );
+}
+
+
+// =====================================================
+// OBTENER CUENTA DE MERCADO LIBRE
+// =====================================================
+
+async function getMercadoLibreAccount() {
+  const accounts = await supabaseRequest(
+    "mercadolibre_accounts?select=*&order=created_at.asc&limit=1"
+  );
+
+  if (!accounts || accounts.length === 0) {
+    throw new Error(
+      "No existe ninguna cuenta de Mercado Libre conectada."
+    );
+  }
+
+  return accounts[0];
+}
+
+
+// =====================================================
+// REFRESCAR ACCESS TOKEN
+// =====================================================
+
+async function refreshMercadoLibreToken(account) {
+  if (!account.refresh_token) {
+    throw new Error(
+      "La cuenta no tiene refresh_token. Hay que volver a autorizar Mercado Libre."
+    );
+  }
+
+  console.log(
+    "Refrescando Access Token de Mercado Libre..."
+  );
+
+  const response = await fetch(
+    "https://api.mercadolibre.com/oauth/token",
+    {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type":
+          "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: MERCADOLIBRE_CLIENT_ID,
+        client_secret: MERCADOLIBRE_CLIENT_SECRET,
+        refresh_token: account.refresh_token
+      })
+    }
+  );
+
+  const tokenData = await response.json();
+
+  if (!response.ok) {
+    console.error(
+      "Error refrescando Mercado Libre:",
+      tokenData
+    );
+
+    throw new Error(
+      `No se pudo refrescar el token: ${JSON.stringify(
+        tokenData
+      )}`
+    );
+  }
+
+  await saveMercadoLibreAccount({
+    ...tokenData,
+    user_id: account.user_id,
+    nickname: account.nickname
+  });
+
+  console.log(
+    "Access Token actualizado correctamente."
+  );
+
+  return {
+    ...account,
+    access_token: tokenData.access_token,
+    refresh_token:
+      tokenData.refresh_token || account.refresh_token,
+    expires_at: new Date(
+      Date.now() + (tokenData.expires_in || 0) * 1000
+    ).toISOString()
+  };
+}
+
+
+// =====================================================
+// OBTENER ACCESS TOKEN VÁLIDO
+// =====================================================
+
+async function getValidMercadoLibreAccount() {
+  let account = await getMercadoLibreAccount();
+
+  const expiresAt = account.expires_at
+    ? new Date(account.expires_at).getTime()
+    : 0;
+
+  const now = Date.now();
+
+  // ---------------------------------------------------
+  // Refrescamos si:
+  //
+  // 1. No existe expiración
+  // 2. Ya expiró
+  // 3. Expira en menos de 60 segundos
+  // ---------------------------------------------------
+
+  if (!expiresAt || expiresAt - now < 60 * 1000) {
+    account =
+      await refreshMercadoLibreToken(account);
+  }
+
+  return account;
+}
+
+
+// =====================================================
+// LLAMADA A API DE MERCADO LIBRE
+// =====================================================
+
+async function mercadoLibreRequest(endpoint) {
+  const account =
+    await getValidMercadoLibreAccount();
+
+  console.log(
+    "Consultando Mercado Libre:",
+    endpoint
+  );
+
+  let response = await fetch(
+    `https://api.mercadolibre.com${endpoint}`,
+    {
+      headers: {
+        Authorization: `Bearer ${account.access_token}`,
+        accept: "application/json"
+      }
+    }
+  );
+
+  let data = await response.json();
+
+  // ---------------------------------------------------
+  // Si el token fue rechazado, intentamos refrescarlo
+  // ---------------------------------------------------
+
+  if (
+    response.status === 401 ||
+    data?.message === "invalid access token"
+  ) {
+    console.log(
+      "Access Token inválido. Intentando refresh..."
+    );
+
+    const refreshed =
+      await refreshMercadoLibreToken(account);
+
+    response = await fetch(
+      `https://api.mercadolibre.com${endpoint}`,
       {
         headers: {
-          apikey: SUPABASE_SECRET_KEY,
-          Authorization: `Bearer ${SUPABASE_SECRET_KEY}`
+          Authorization:
+            `Bearer ${refreshed.access_token}`,
+          accept: "application/json"
         }
       }
     );
 
-    if (!response.ok) {
-      throw new Error(
-        `Supabase respondió ${response.status}`
-      );
-    }
+    data = await response.json();
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Mercado Libre ${response.status}: ${JSON.stringify(
+        data
+      )}`
+    );
+  }
+
+  return data;
+}
+
+
+// =====================================================
+// HOME
+// =====================================================
+
+app.get("/", async (req, res) => {
+  try {
+    const account =
+      await getMercadoLibreAccount();
 
     res.send(`
       <h1>Findr Bot activo 🚀</h1>
 
-      <p>Mercado Libre: conectado ✅</p>
+      <p>
+        Mercado Libre: conectado ✅
+      </p>
 
-      <p>Supabase: conectado ✅</p>
+      <p>
+        Supabase: conectado ✅
+      </p>
 
-      <br>
+      <p>
+        Usuario ML: ${account.user_id}
+      </p>
 
-      <a href="/connect">
-        <button>
-          Conectar Mercado Libre
-        </button>
-      </a>
+      <p>
+        Nickname: ${account.nickname || "No disponible"}
+      </p>
     `);
 
   } catch (error) {
 
     console.error(error);
 
-    res.status(500).send(`
+    res.send(`
       <h1>Findr Bot activo 🚀</h1>
 
-      <p>Supabase: error ❌</p>
+      <p>
+        Supabase: conectado ✅
+      </p>
 
-      <br>
+      <p>
+        Mercado Libre: no conectado ⚠️
+      </p>
 
-      <a href="/connect">
-        Conectar Mercado Libre
-      </a>
+      <p>
+        ${error.message}
+      </p>
+
+      <p>
+        <a href="/auth/mercadolibre">
+          Conectar Mercado Libre
+        </a>
+      </p>
     `);
   }
 });
 
 
-// ==========================================
-// INICIAR OAUTH MERCADO LIBRE
-// ==========================================
+// =====================================================
+// INICIAR OAUTH DE MERCADO LIBRE
+// =====================================================
 
-app.get("/connect", (req, res) => {
+app.get("/auth/mercadolibre", (req, res) => {
 
-  const authUrl =
+  const authorizationUrl =
     "https://auth.mercadolibre.com.mx/authorization" +
     `?response_type=code` +
     `&client_id=${encodeURIComponent(
@@ -95,15 +435,17 @@ app.get("/connect", (req, res) => {
       MERCADOLIBRE_REDIRECT_URI
     )}`;
 
-  console.log("Iniciando OAuth Mercado Libre");
+  console.log(
+    "Redirigiendo a Mercado Libre para autorización..."
+  );
 
-  res.redirect(authUrl);
+  res.redirect(authorizationUrl);
 });
 
 
-// ==========================================
-// CALLBACK OAUTH
-// ==========================================
+// =====================================================
+// OAUTH CALLBACK
+// =====================================================
 
 app.get("/oauth/callback", async (req, res) => {
 
@@ -113,10 +455,9 @@ app.get("/oauth/callback", async (req, res) => {
     error_description
   } = req.query;
 
-
-  // ------------------------------------------
-  // ERROR OAUTH
-  // ------------------------------------------
+  // ---------------------------------------------------
+  // Error de Mercado Libre
+  // ---------------------------------------------------
 
   if (error) {
 
@@ -127,28 +468,36 @@ app.get("/oauth/callback", async (req, res) => {
         ${error}
       </p>
 
-      ${
-        error_description
-          ? `<p>${error_description}</p>`
-          : ""
-      }
+      <p>
+        ${error_description || ""}
+      </p>
     `);
   }
 
+  // ---------------------------------------------------
+  // No recibimos código
+  // ---------------------------------------------------
 
   if (!code) {
 
-    return res.status(400).send(
-      "No se recibió código OAuth."
-    );
-  }
+    return res.status(400).send(`
+      <h1>Error ❌</h1>
 
+      <p>
+        No se recibió código OAuth.
+      </p>
+    `);
+  }
 
   try {
 
-    // ----------------------------------------
-    // 1. INTERCAMBIAR CODE POR TOKENS
-    // ----------------------------------------
+    console.log(
+      "Código OAuth recibido correctamente."
+    );
+
+    // -------------------------------------------------
+    // Intercambiar code por tokens
+    // -------------------------------------------------
 
     const tokenResponse = await fetch(
       "https://api.mercadolibre.com/oauth/token",
@@ -162,9 +511,7 @@ app.get("/oauth/callback", async (req, res) => {
         },
 
         body: new URLSearchParams({
-
-          grant_type:
-            "authorization_code",
+          grant_type: "authorization_code",
 
           client_id:
             MERCADOLIBRE_CLIENT_ID,
@@ -172,8 +519,7 @@ app.get("/oauth/callback", async (req, res) => {
           client_secret:
             MERCADOLIBRE_CLIENT_SECRET,
 
-          code:
-            code,
+          code: code,
 
           redirect_uri:
             MERCADOLIBRE_REDIRECT_URI
@@ -181,14 +527,12 @@ app.get("/oauth/callback", async (req, res) => {
       }
     );
 
-
     const tokenData =
       await tokenResponse.json();
 
-
-    // ----------------------------------------
-    // 2. VALIDAR RESPUESTA
-    // ----------------------------------------
+    // -------------------------------------------------
+    // Error
+    // -------------------------------------------------
 
     if (!tokenResponse.ok) {
 
@@ -201,188 +545,58 @@ app.get("/oauth/callback", async (req, res) => {
         <h1>Error conectando Mercado Libre ❌</h1>
 
         <pre>
-${JSON.stringify(tokenData, null, 2)}
+${JSON.stringify(
+  tokenData,
+  null,
+  2
+)}
         </pre>
       `);
     }
 
+    // -------------------------------------------------
+    // Guardar tokens en Supabase
+    // -------------------------------------------------
 
-    const userId =
-      tokenData.user_id;
-
-    const accessToken =
-      tokenData.access_token;
-
-    const refreshToken =
-      tokenData.refresh_token;
-
-
-    // ----------------------------------------
-    // 3. CALCULAR EXPIRACIÓN
-    // ----------------------------------------
-
-    const expiresAt =
-      new Date(
-        Date.now() +
-        tokenData.expires_in * 1000
-      ).toISOString();
-
-
-    // ----------------------------------------
-    // 4. OBTENER USUARIO
-    // ----------------------------------------
-
-    const userResponse =
-      await fetch(
-        `https://api.mercadolibre.com/users/${userId}`,
-        {
-          headers: {
-            Authorization:
-              `Bearer ${accessToken}`
-          }
-        }
-      );
-
-
-    if (!userResponse.ok) {
-
-      throw new Error(
-        "No se pudo obtener información del usuario de Mercado Libre."
-      );
-    }
-
-
-    const userData =
-      await userResponse.json();
-
-
-    const nickname =
-      userData.nickname || null;
-
-
-    // ----------------------------------------
-    // 5. GUARDAR EN SUPABASE
-    // ----------------------------------------
-
-    const supabaseResponse =
-      await fetch(
-        `${SUPABASE_URL}/rest/v1/mercadolibre_accounts?on_conflict=user_id`,
-        {
-          method: "POST",
-
-          headers: {
-
-            apikey:
-              SUPABASE_SECRET_KEY,
-
-            Authorization:
-              `Bearer ${SUPABASE_SECRET_KEY}`,
-
-            "Content-Type":
-              "application/json",
-
-            Prefer:
-              "resolution=merge-duplicates,return=minimal"
-          },
-
-          body: JSON.stringify({
-
-            user_id:
-              userId,
-
-            nickname:
-              nickname,
-
-            access_token:
-              accessToken,
-
-            refresh_token:
-              refreshToken,
-
-            expires_at:
-              expiresAt
-          })
-        }
-      );
-
-
-    // ----------------------------------------
-    // 6. VALIDAR SUPABASE
-    // ----------------------------------------
-
-    if (!supabaseResponse.ok) {
-
-      const errorText =
-        await supabaseResponse.text();
-
-      console.error(
-        "Supabase error:",
-        errorText
-      );
-
-      throw new Error(
-        `No se pudo guardar la cuenta en Supabase: ${supabaseResponse.status}`
-      );
-    }
-
-
-    console.log(
-      "================================="
+    await saveMercadoLibreAccount(
+      tokenData
     );
 
     console.log(
-      "Mercado Libre conectado"
+      "Mercado Libre conectado correctamente."
     );
 
     console.log(
       "User ID:",
-      userId
+      tokenData.user_id
     );
 
-    console.log(
-      "Nickname:",
-      nickname
-    );
-
-    console.log(
-      "Cuenta guardada en Supabase"
-    );
-
-    console.log(
-      "================================="
-    );
-
-
-    // ----------------------------------------
-    // 7. RESPUESTA FINAL
-    // ----------------------------------------
+    // -------------------------------------------------
+    // Respuesta
+    // -------------------------------------------------
 
     res.send(`
-
       <h1>
         ¡Mercado Libre conectado! ✅
       </h1>
 
       <p>
-        <strong>Cuenta:</strong>
-        ${nickname || "Sin nickname"}
+        FINDR recibió correctamente los tokens.
       </p>
 
       <p>
-        FINDR guardó correctamente
-        la conexión en Supabase.
+        User ID:
+        <strong>${tokenData.user_id}</strong>
       </p>
 
       <p>
-        <strong>Estado:</strong> 🟢 Activo
+        El Access Token fue guardado de forma segura
+        en Supabase.
       </p>
 
-      <br>
-
-      <a href="/">
-        Volver a FINDR
-      </a>
-
+      <p>
+        Ya puedes cerrar esta ventana.
+      </p>
     `);
 
   } catch (error) {
@@ -393,117 +607,9 @@ ${JSON.stringify(tokenData, null, 2)}
     );
 
     res.status(500).send(`
-
       <h1>
         Error interno de FINDR ❌
       </h1>
-
-      <p>
-        No se pudo completar
-        la conexión con Mercado Libre.
-      </p>
-
-      <p>
-        Revisa los logs de Render.
-      </p>
-
-    `);
-  }
-});
-
-// ==========================================
-// PRUEBA DE CONEXIÓN CON MERCADO LIBRE
-// ==========================================
-
-app.get("/test-ml", async (req, res) => {
-  try {
-    // 1. Recuperar la cuenta guardada en Supabase
-    const accountResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/mercadolibre_accounts?select=user_id,access_token,nickname,expires_at&limit=1`,
-      {
-        headers: {
-          apikey: SUPABASE_SECRET_KEY,
-          Authorization: `Bearer ${SUPABASE_SECRET_KEY}`
-        }
-      }
-    );
-
-    if (!accountResponse.ok) {
-      throw new Error(
-        `Error consultando Supabase: ${accountResponse.status}`
-      );
-    }
-
-    const accounts = await accountResponse.json();
-
-    if (!accounts.length) {
-      return res.status(404).send(
-        "No hay una cuenta de Mercado Libre guardada."
-      );
-    }
-
-    const account = accounts[0];
-
-    // 2. Usar el Access Token guardado
-    const mlResponse = await fetch(
-      "https://api.mercadolibre.com/users/me",
-      {
-        headers: {
-          Authorization: `Bearer ${account.access_token}`
-        }
-      }
-    );
-
-    const mlData = await mlResponse.json();
-
-    if (!mlResponse.ok) {
-      console.error(
-        "Mercado Libre API error:",
-        mlData
-      );
-
-      return res.status(mlResponse.status).send(`
-        <h1>Error de Mercado Libre ❌</h1>
-        <pre>${JSON.stringify(mlData, null, 2)}</pre>
-      `);
-    }
-
-    // 3. Mostrar únicamente información NO sensible
-    res.send(`
-      <h1>FINDR conectado correctamente 🚀</h1>
-
-      <p>
-        <strong>User ID:</strong>
-        ${mlData.id}
-      </p>
-
-      <p>
-        <strong>Nickname:</strong>
-        ${mlData.nickname || "No disponible"}
-      </p>
-
-      <p>
-        <strong>País:</strong>
-        ${mlData.country_id || "No disponible"}
-      </p>
-
-      <p>
-        Token recuperado desde Supabase: ✅
-      </p>
-
-      <p>
-        Mercado Libre API respondió: ✅
-      </p>
-    `);
-
-  } catch (error) {
-    console.error(
-      "Test ML error:",
-      error
-    );
-
-    res.status(500).send(`
-      <h1>Error en la prueba ❌</h1>
 
       <p>
         ${error.message}
@@ -511,9 +617,115 @@ app.get("/test-ml", async (req, res) => {
     `);
   }
 });
-// ==========================================
+
+
+// =====================================================
+// TEST MERCADO LIBRE
+// =====================================================
+
+app.get("/test-ml", async (req, res) => {
+
+  try {
+
+    const account =
+      await getValidMercadoLibreAccount();
+
+    const userData =
+      await mercadoLibreRequest(
+        `/users/${account.user_id}`
+      );
+
+    res.send(`
+      <h1>
+        Mercado Libre funcionando 🚀
+      </h1>
+
+      <p>
+        Conexión: ✅
+      </p>
+
+      <p>
+        User ID:
+        <strong>${userData.id}</strong>
+      </p>
+
+      <p>
+        Nickname:
+        <strong>${userData.nickname || "N/A"}</strong>
+      </p>
+
+      <p>
+        País:
+        <strong>${userData.country_id || "N/A"}</strong>
+      </p>
+
+      <hr>
+
+      <pre>
+${JSON.stringify(
+  userData,
+  null,
+  2
+)}
+      </pre>
+    `);
+
+  } catch (error) {
+
+    console.error(
+      "Test Mercado Libre error:",
+      error
+    );
+
+    res.status(500).send(`
+      <h1>
+        Error de Mercado Libre ❌
+      </h1>
+
+      <pre>
+${error.message}
+      </pre>
+    `);
+  }
+});
+
+
+// =====================================================
+// TEST SUPABASE
+// =====================================================
+
+app.get("/test-supabase", async (req, res) => {
+
+  try {
+
+    const accounts =
+      await supabaseRequest(
+        "mercadolibre_accounts?select=user_id,nickname,expires_at"
+      );
+
+    res.json({
+      success: true,
+      accounts
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Supabase test error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+
+// =====================================================
 // SERVIDOR
-// ==========================================
+// =====================================================
 
 app.listen(PORT, () => {
 
