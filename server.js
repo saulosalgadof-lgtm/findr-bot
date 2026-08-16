@@ -3,6 +3,7 @@ import express from "express";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+
 // =====================================================
 // MIDDLEWARE
 // =====================================================
@@ -14,8 +15,11 @@ app.use(express.json());
 // CONFIGURACIÓN
 // =====================================================
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
+const SUPABASE_URL =
+  process.env.SUPABASE_URL;
+
+const SUPABASE_SECRET_KEY =
+  process.env.SUPABASE_SECRET_KEY;
 
 const MERCADOLIBRE_CLIENT_ID =
   process.env.MERCADOLIBRE_CLIENT_ID;
@@ -67,7 +71,10 @@ console.log("======================================");
 // FUNCIONES SUPABASE
 // =====================================================
 
-async function supabaseRequest(endpoint, options = {}) {
+async function supabaseRequest(
+  endpoint,
+  options = {}
+) {
 
   const response = await fetch(
     `${SUPABASE_URL}/rest/v1/${endpoint}`,
@@ -75,7 +82,8 @@ async function supabaseRequest(endpoint, options = {}) {
       ...options,
 
       headers: {
-        apikey: SUPABASE_SECRET_KEY,
+        apikey:
+          SUPABASE_SECRET_KEY,
 
         Authorization:
           `Bearer ${SUPABASE_SECRET_KEY}`,
@@ -94,9 +102,10 @@ async function supabaseRequest(endpoint, options = {}) {
   let data;
 
   try {
-    data = text
-      ? JSON.parse(text)
-      : null;
+    data =
+      text
+        ? JSON.parse(text)
+        : null;
   } catch {
     data = text;
   }
@@ -116,21 +125,18 @@ async function supabaseRequest(endpoint, options = {}) {
 // GUARDAR CUENTA MERCADO LIBRE
 // =====================================================
 
-async function saveMercadoLibreAccount(tokenData) {
+async function saveMercadoLibreAccount(
+  tokenData
+) {
 
   const userId =
     tokenData.user_id;
 
   if (!userId) {
-
     throw new Error(
       "Mercado Libre no devolvió user_id."
     );
   }
-
-  // -----------------------------------------
-  // Buscar cuenta existente
-  // -----------------------------------------
 
   const existing =
     await supabaseRequest(
@@ -143,21 +149,11 @@ async function saveMercadoLibreAccount(tokenData) {
       ? existing[0]
       : null;
 
-
-  // -----------------------------------------
-  // Calcular expiración
-  // -----------------------------------------
-
   const expiresAt =
     new Date(
       Date.now() +
       (tokenData.expires_in || 0) * 1000
     ).toISOString();
-
-
-  // -----------------------------------------
-  // Preparar datos
-  // -----------------------------------------
 
   const accountData = {
 
@@ -182,16 +178,13 @@ async function saveMercadoLibreAccount(tokenData) {
   };
 
 
-  // -----------------------------------------
-  // Actualizar cuenta existente
-  // -----------------------------------------
-
   if (currentAccount) {
 
     await supabaseRequest(
       `mercadolibre_accounts?user_id=eq.${userId}`,
       {
-        method: "PATCH",
+        method:
+          "PATCH",
 
         headers: {
           Prefer:
@@ -199,7 +192,9 @@ async function saveMercadoLibreAccount(tokenData) {
         },
 
         body:
-          JSON.stringify(accountData)
+          JSON.stringify(
+            accountData
+          )
       }
     );
 
@@ -212,14 +207,11 @@ async function saveMercadoLibreAccount(tokenData) {
   }
 
 
-  // -----------------------------------------
-  // Crear nueva cuenta
-  // -----------------------------------------
-
   await supabaseRequest(
     "mercadolibre_accounts",
     {
-      method: "POST",
+      method:
+        "POST",
 
       headers: {
         Prefer:
@@ -227,7 +219,9 @@ async function saveMercadoLibreAccount(tokenData) {
       },
 
       body:
-        JSON.stringify(accountData)
+        JSON.stringify(
+          accountData
+        )
     }
   );
 
@@ -267,7 +261,9 @@ async function getMercadoLibreAccount() {
 // REFRESH TOKEN MERCADO LIBRE
 // =====================================================
 
-async function refreshMercadoLibreToken(account) {
+async function refreshMercadoLibreToken(
+  account
+) {
 
   if (!account.refresh_token) {
 
@@ -277,18 +273,17 @@ async function refreshMercadoLibreToken(account) {
   }
 
   console.log(
-    "Refrescando Access Token de Mercado Libre..."
+    "Refrescando Access Token..."
   );
-
 
   const response =
     await fetch(
       "https://api.mercadolibre.com/oauth/token",
       {
-        method: "POST",
+        method:
+          "POST",
 
         headers: {
-
           accept:
             "application/json",
 
@@ -314,15 +309,13 @@ async function refreshMercadoLibreToken(account) {
       }
     );
 
-
   const tokenData =
     await response.json();
-
 
   if (!response.ok) {
 
     console.error(
-      "Error refrescando Mercado Libre:",
+      "Error refrescando token:",
       tokenData
     );
 
@@ -330,7 +323,6 @@ async function refreshMercadoLibreToken(account) {
       `No se pudo refrescar el token: ${JSON.stringify(tokenData)}`
     );
   }
-
 
   await saveMercadoLibreAccount({
 
@@ -343,11 +335,9 @@ async function refreshMercadoLibreToken(account) {
       account.nickname
   });
 
-
   console.log(
     "Access Token actualizado correctamente."
   );
-
 
   return {
 
@@ -378,7 +368,6 @@ async function getValidMercadoLibreAccount() {
   let account =
     await getMercadoLibreAccount();
 
-
   const expiresAt =
     account.expires_at
       ? new Date(
@@ -386,14 +375,8 @@ async function getValidMercadoLibreAccount() {
         ).getTime()
       : 0;
 
-
   const now =
     Date.now();
-
-
-  // -----------------------------------------
-  // Renovar si está expirado o próximo a expirar
-  // -----------------------------------------
 
   if (
     !expiresAt ||
@@ -407,7 +390,6 @@ async function getValidMercadoLibreAccount() {
       );
   }
 
-
   return account;
 }
 
@@ -416,17 +398,17 @@ async function getValidMercadoLibreAccount() {
 // CLIENTE API MERCADO LIBRE
 // =====================================================
 
-async function mercadoLibreRequest(endpoint) {
+async function mercadoLibreRequest(
+  endpoint
+) {
 
   let account =
     await getValidMercadoLibreAccount();
-
 
   console.log(
     "Consultando Mercado Libre:",
     endpoint
   );
-
 
   let response =
     await fetch(
@@ -443,14 +425,9 @@ async function mercadoLibreRequest(endpoint) {
       }
     );
 
-
   let data =
     await response.json();
 
-
-  // -----------------------------------------
-  // Access Token inválido
-  // -----------------------------------------
 
   if (
     response.status === 401 ||
@@ -462,12 +439,10 @@ async function mercadoLibreRequest(endpoint) {
       "Access Token inválido. Intentando refresh..."
     );
 
-
     account =
       await refreshMercadoLibreToken(
         account
       );
-
 
     response =
       await fetch(
@@ -484,7 +459,6 @@ async function mercadoLibreRequest(endpoint) {
         }
       );
 
-
     data =
       await response.json();
   }
@@ -492,11 +466,19 @@ async function mercadoLibreRequest(endpoint) {
 
   if (!response.ok) {
 
-    throw new Error(
-      `Mercado Libre ${response.status}: ${JSON.stringify(data)}`
-    );
-  }
+    const error =
+      new Error(
+        `Mercado Libre ${response.status}: ${JSON.stringify(data)}`
+      );
 
+    error.status =
+      response.status;
+
+    error.data =
+      data;
+
+    throw error;
+  }
 
   return data;
 }
@@ -506,98 +488,99 @@ async function mercadoLibreRequest(endpoint) {
 // HOME
 // =====================================================
 
-app.get("/", async (req, res) => {
+app.get(
+  "/",
+  async (req, res) => {
 
-  try {
+    try {
 
-    const account =
-      await getMercadoLibreAccount();
+      const account =
+        await getMercadoLibreAccount();
 
+      res.send(`
 
-    res.send(`
+        <h1>
+          Findr Bot activo 🚀
+        </h1>
 
-      <h1>
-        Findr Bot activo 🚀
-      </h1>
+        <p>
+          Mercado Libre: conectado ✅
+        </p>
 
-      <p>
-        Mercado Libre: conectado ✅
-      </p>
+        <p>
+          Supabase: conectado ✅
+        </p>
 
-      <p>
-        Supabase: conectado ✅
-      </p>
+        <p>
+          Usuario ML:
+          ${account.user_id}
+        </p>
 
-      <p>
-        Usuario ML:
-        ${account.user_id}
-      </p>
+        <p>
+          Nickname:
+          ${account.nickname || "No disponible"}
+        </p>
 
-      <p>
-        Nickname:
-        ${account.nickname || "No disponible"}
-      </p>
+        <hr>
 
-      <hr>
+        <p>
+          <a href="/auth/mercadolibre">
+            Conectar Mercado Libre
+          </a>
+        </p>
 
-      <p>
-        <a href="/auth/mercadolibre">
-          Conectar Mercado Libre
-        </a>
-      </p>
+        <p>
+          <a href="/test-ml">
+            Probar Mercado Libre
+          </a>
+        </p>
 
-      <p>
-        <a href="/test-ml">
-          Probar Mercado Libre
-        </a>
-      </p>
+        <p>
+          <a href="/test-supabase">
+            Probar Supabase
+          </a>
+        </p>
 
-      <p>
-        <a href="/test-supabase">
-          Probar Supabase
-        </a>
-      </p>
+        <p>
+          <a href="/diagnostic-search">
+            Diagnóstico de búsqueda
+          </a>
+        </p>
 
-      <p>
-        <a href="/search-ml?q=iphone">
-          Probar búsqueda
-        </a>
-      </p>
+      `);
 
-    `);
+    } catch (error) {
 
-  } catch (error) {
+      console.error(error);
 
-    console.error(error);
+      res.send(`
 
+        <h1>
+          Findr Bot activo 🚀
+        </h1>
 
-    res.send(`
+        <p>
+          Supabase: conectado ✅
+        </p>
 
-      <h1>
-        Findr Bot activo 🚀
-      </h1>
+        <p>
+          Mercado Libre: no conectado ⚠️
+        </p>
 
-      <p>
-        Supabase: conectado ✅
-      </p>
+        <p>
+          ${error.message}
+        </p>
 
-      <p>
-        Mercado Libre: no conectado ⚠️
-      </p>
+        <p>
+          <a href="/auth/mercadolibre">
+            Conectar Mercado Libre
+          </a>
+        </p>
 
-      <p>
-        ${error.message}
-      </p>
-
-      <p>
-        <a href="/auth/mercadolibre">
-          Conectar Mercado Libre
-        </a>
-      </p>
-
-    `);
+      `);
+    }
   }
-});
+);
 
 
 // =====================================================
@@ -621,12 +604,6 @@ app.get(
         MERCADOLIBRE_REDIRECT_URI
       )}`;
 
-
-    console.log(
-      "Redirigiendo a Mercado Libre..."
-    );
-
-
     res.redirect(
       authorizationUrl
     );
@@ -648,10 +625,6 @@ app.get(
       error_description
     } = req.query;
 
-
-    // -----------------------------------------
-    // Error OAuth
-    // -----------------------------------------
 
     if (error) {
 
@@ -682,15 +655,6 @@ app.get(
 
 
     try {
-
-      console.log(
-        "Código OAuth recibido."
-      );
-
-
-      // ---------------------------------------
-      // Intercambiar code por tokens
-      // ---------------------------------------
 
       const tokenResponse =
         await fetch(
@@ -735,17 +699,12 @@ app.get(
         await tokenResponse.json();
 
 
-      // ---------------------------------------
-      // Validar respuesta
-      // ---------------------------------------
-
       if (!tokenResponse.ok) {
 
         console.error(
           "Mercado Libre OAuth error:",
           tokenData
         );
-
 
         return res.status(400).send(`
 
@@ -765,29 +724,10 @@ ${JSON.stringify(
       }
 
 
-      // ---------------------------------------
-      // Guardar cuenta
-      // ---------------------------------------
-
       await saveMercadoLibreAccount(
         tokenData
       );
 
-
-      console.log(
-        "Mercado Libre conectado correctamente."
-      );
-
-
-      console.log(
-        "User ID:",
-        tokenData.user_id
-      );
-
-
-      // ---------------------------------------
-      // Respuesta
-      // ---------------------------------------
 
       res.send(`
 
@@ -812,10 +752,6 @@ ${JSON.stringify(
           en Supabase.
         </p>
 
-        <p>
-          Puedes cerrar esta ventana.
-        </p>
-
       `);
 
     } catch (error) {
@@ -824,7 +760,6 @@ ${JSON.stringify(
         "OAuth error:",
         error
       );
-
 
       res.status(500).send(`
 
@@ -862,24 +797,18 @@ app.post(
       )
     );
 
-    // -----------------------------------------
-    // Responder inmediatamente a Mercado Libre
-    // -----------------------------------------
-
     res.sendStatus(200);
-
-    // -----------------------------------------
-    // Procesar la notificación después
-    // -----------------------------------------
 
     processMercadoLibreNotification(
       req.body
     ).catch(
       (error) => {
+
         console.error(
           "❌ Error procesando notificación:",
           error
         );
+
       }
     );
   }
@@ -887,26 +816,16 @@ app.post(
 
 
 // =====================================================
-// PROCESAR NOTIFICACIÓN DE MERCADO LIBRE
+// PROCESAR NOTIFICACIÓN
 // =====================================================
 
 async function processMercadoLibreNotification(
   notification
 ) {
 
-  // -----------------------------------------
-  // Validar notificación
-  // -----------------------------------------
-
   if (!notification) {
-
-    console.log(
-      "⚠️ Notificación vacía."
-    );
-
     return;
   }
-
 
   const topic =
     notification.topic;
@@ -916,7 +835,6 @@ async function processMercadoLibreNotification(
 
   const userId =
     notification.user_id;
-
 
   console.log(
     "Topic:",
@@ -934,16 +852,12 @@ async function processMercadoLibreNotification(
   );
 
 
-  // -----------------------------------------
-  // Por ahora solo procesamos ITEMS
-  // -----------------------------------------
-
   if (
     topic !== "items"
   ) {
 
     console.log(
-      `ℹ️ Topic "${topic}" todavía no está implementado.`
+      `Topic "${topic}" todavía no está implementado.`
     );
 
     return;
@@ -953,21 +867,11 @@ async function processMercadoLibreNotification(
   if (!resource) {
 
     console.log(
-      "⚠️ La notificación no contiene resource."
+      "La notificación no contiene resource."
     );
 
     return;
   }
-
-
-  // -----------------------------------------
-  // Obtener información completa del item
-  // -----------------------------------------
-
-  console.log(
-    "🔎 Consultando item:",
-    resource
-  );
 
 
   const item =
@@ -981,21 +885,6 @@ async function processMercadoLibreNotification(
     item.id
   );
 
-
-  console.log(
-    "Título:",
-    item.title
-  );
-
-  console.log(
-    "Precio:",
-    item.price
-  );
-
-
-  // -----------------------------------------
-  // Guardar item en Supabase
-  // -----------------------------------------
 
   const itemData = {
 
@@ -1053,10 +942,6 @@ async function processMercadoLibreNotification(
   };
 
 
-  // -----------------------------------------
-  // Insertar / actualizar
-  // -----------------------------------------
-
   await supabaseRequest(
     "ml_items?on_conflict=id",
     {
@@ -1079,13 +964,14 @@ async function processMercadoLibreNotification(
 
 
   console.log(
-    "💾 Item guardado en Supabase:",
+    "💾 Item guardado:",
     item.id
   );
 }
 
+
 // =====================================================
-// PRUEBA DEL ENDPOINT DE NOTIFICACIONES
+// TEST NOTIFICACIONES
 // =====================================================
 
 app.get(
@@ -1165,21 +1051,18 @@ app.get(
           Access Token válido: ✅
         </p>
 
-        <p>
-          Mercado Libre API respondió: ✅
-        </p>
-
       `);
 
     } catch (error) {
 
       console.error(
-        "Test Mercado Libre error:",
+        "Test ML error:",
         error
       );
 
-
-      res.status(500).send(`
+      res.status(
+        error.status || 500
+      ).send(`
 
         <h1>
           Error de Mercado Libre ❌
@@ -1191,6 +1074,202 @@ ${error.message}
 
       `);
     }
+  }
+);
+
+
+// =====================================================
+// DIAGNÓSTICO DE BÚSQUEDA
+// =====================================================
+
+app.get(
+  "/diagnostic-search",
+  async (req, res) => {
+
+    const results = {};
+
+    // -----------------------------------------
+    // PRUEBA 1
+    // /sites/MLM/search?limit=1
+    // -----------------------------------------
+
+    try {
+
+      const data =
+        await mercadoLibreRequest(
+          "/sites/MLM/search?limit=1"
+        );
+
+      results.search_basic = {
+
+        success:
+          true,
+
+        status:
+          200,
+
+        total:
+          data.paging?.total ||
+          null,
+
+        first_item:
+          data.results?.[0]?.id ||
+          null
+      };
+
+    } catch (error) {
+
+      results.search_basic = {
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+      };
+    }
+
+
+    // -----------------------------------------
+    // PRUEBA 2
+    // /sites/MLM/search?q=iphone&limit=1
+    // -----------------------------------------
+
+    try {
+
+      const data =
+        await mercadoLibreRequest(
+          "/sites/MLM/search?q=iphone&limit=1"
+        );
+
+      results.search_query = {
+
+        success:
+          true,
+
+        status:
+          200,
+
+        total:
+          data.paging?.total ||
+          null,
+
+        first_item:
+          data.results?.[0]?.id ||
+          null,
+
+        first_title:
+          data.results?.[0]?.title ||
+          null
+      };
+
+    } catch (error) {
+
+      results.search_query = {
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+      };
+    }
+
+
+    // -----------------------------------------
+    // PRUEBA 3
+    // /products/search
+    // -----------------------------------------
+
+    try {
+
+      const params =
+        new URLSearchParams({
+
+          status:
+            "active",
+
+          site_id:
+            "MLM",
+
+          q:
+            "iphone",
+
+          limit:
+            "1"
+        });
+
+
+      const data =
+        await mercadoLibreRequest(
+          `/products/search?${params.toString()}`
+        );
+
+
+      results.products_search = {
+
+        success:
+          true,
+
+        status:
+          200,
+
+        total:
+          data.paging?.total ||
+          null,
+
+        first_product:
+          data.results?.[0]?.id ||
+          null,
+
+        first_name:
+          data.results?.[0]?.name ||
+          null
+      };
+
+    } catch (error) {
+
+      results.products_search = {
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+      };
+    }
+
+
+    // -----------------------------------------
+    // RESPUESTA
+    // -----------------------------------------
+
+    res.json({
+
+      success:
+        true,
+
+      message:
+        "Diagnóstico completado.",
+
+      results
+
+    });
   }
 );
 
@@ -1217,7 +1296,7 @@ app.get(
             false,
 
           error:
-            "Debes proporcionar una búsqueda. Ejemplo: /search-ml?q=iphone"
+            "Debes proporcionar una búsqueda."
         });
       }
 
@@ -1322,12 +1401,19 @@ app.get(
       );
 
 
-      res.status(500).json({
+      res.status(
+        error.status || 500
+      ).json({
 
         success:
           false,
 
+        status:
+          error.status ||
+          null,
+
         error:
+          error.data ||
           error.message
       });
     }
@@ -1336,77 +1422,67 @@ app.get(
 
 
 // =====================================================
-// TEST BÚSQUEDA PÚBLICA
+// BÚSQUEDA DE PRODUCTOS DE CATÁLOGO
 // =====================================================
 
 app.get(
-  "/test-search-public",
+  "/products-search",
   async (req, res) => {
 
     try {
 
       const query =
-        req.query.q ||
-        "iphone";
+        req.query.q;
+
+
+      if (!query) {
+
+        return res.status(400).json({
+
+          success:
+            false,
+
+          error:
+            "Debes proporcionar una búsqueda. Ejemplo: /products-search?q=iphone"
+        });
+      }
+
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 10,
+          50
+        );
+
+
+      const offset =
+        Number(req.query.offset) || 0;
 
 
       const params =
         new URLSearchParams({
 
+          status:
+            "active",
+
+          site_id:
+            "MLM",
+
           q:
             query,
 
           limit:
-            "5"
+            String(limit),
+
+          offset:
+            String(offset)
         });
-
-
-      console.log(
-        "Probando búsqueda pública:",
-        query
-      );
-
-
-      const response =
-        await fetch(
-          `https://api.mercadolibre.com/sites/MLM/search?${params.toString()}`,
-          {
-
-            headers: {
-
-              accept:
-                "application/json"
-            }
-          }
-        );
 
 
       const data =
-        await response.json();
-
-
-      console.log(
-        "Respuesta búsqueda pública:",
-        response.status
-      );
-
-
-      if (!response.ok) {
-
-        return res.status(
-          response.status
-        ).json({
-
-          success:
-            false,
-
-          status:
-            response.status,
-
-          error:
-            data
-        });
-      }
+        await mercadoLibreRequest(
+          `/products/search?${params.toString()}`
+        );
 
 
       res.json({
@@ -1421,27 +1497,31 @@ app.get(
           0,
 
         results:
-          data.results?.slice(
-            0,
-            5
-          ) ||
+          data.results ||
           []
       });
 
     } catch (error) {
 
       console.error(
-        "Error búsqueda pública:",
+        "Error buscando productos:",
         error
       );
 
 
-      res.status(500).json({
+      res.status(
+        error.status || 500
+      ).json({
 
         success:
           false,
 
+        status:
+          error.status ||
+          null,
+
         error:
+          error.data ||
           error.message
       });
     }
