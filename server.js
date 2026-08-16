@@ -10,10 +10,9 @@ const MERCADOLIBRE_CLIENT_ID = process.env.MERCADOLIBRE_CLIENT_ID;
 const MERCADOLIBRE_CLIENT_SECRET = process.env.MERCADOLIBRE_CLIENT_SECRET;
 const MERCADOLIBRE_REDIRECT_URI = process.env.MERCADOLIBRE_REDIRECT_URI;
 
-
-// ==========================================
-// HOME
-// ==========================================
+// =====================================================
+// INICIO
+// =====================================================
 
 app.get("/", async (req, res) => {
   try {
@@ -33,7 +32,6 @@ app.get("/", async (req, res) => {
       <p>Mercado Libre: conectado ✅</p>
       <p>Supabase: conectado ✅</p>
     `);
-
   } catch (error) {
     console.error(error);
 
@@ -44,22 +42,22 @@ app.get("/", async (req, res) => {
   }
 });
 
-
-// ==========================================
-// MERCADO LIBRE OAUTH CALLBACK
-// ==========================================
+// =====================================================
+// OAUTH MERCADO LIBRE
+// =====================================================
 
 app.get("/oauth/callback", async (req, res) => {
-
   const { code, error, error_description } = req.query;
 
-  // ------------------------------------------
+  // ---------------------------------------------------
   // 1. Revisar errores de OAuth
-  // ------------------------------------------
+  // ---------------------------------------------------
 
   if (error) {
     return res.status(400).send(
-      `OAuth error: ${error}${error_description ? ` - ${error_description}` : ""}`
+      `OAuth error: ${error}${
+        error_description ? ` - ${error_description}` : ""
+      }`
     );
   }
 
@@ -67,12 +65,10 @@ app.get("/oauth/callback", async (req, res) => {
     return res.status(400).send("No se recibió código OAuth.");
   }
 
-
   try {
-
-    // ------------------------------------------
-    // 2. Intercambiar CODE por TOKENS
-    // ------------------------------------------
+    // -------------------------------------------------
+    // 2. Intercambiar código OAuth por tokens
+    // -------------------------------------------------
 
     const tokenResponse = await fetch(
       "https://api.mercadolibre.com/oauth/token",
@@ -96,8 +92,11 @@ app.get("/oauth/callback", async (req, res) => {
 
     const tokenData = await tokenResponse.json();
 
-    if (!tokenResponse.ok) {
+    // -------------------------------------------------
+    // 3. Revisar respuesta de Mercado Libre
+    // -------------------------------------------------
 
+    if (!tokenResponse.ok) {
       console.error("Mercado Libre OAuth error:", tokenData);
 
       return res.status(400).send(`
@@ -106,204 +105,123 @@ app.get("/oauth/callback", async (req, res) => {
       `);
     }
 
+    const userId = tokenData.user_id;
+    const accessToken = tokenData.access_token;
+    const refreshToken = tokenData.refresh_token;
 
-    // ------------------------------------------
-    // 3. Extraer información de los tokens
-    // ------------------------------------------
+    // -------------------------------------------------
+    // 4. Calcular expiración del Access Token
+    // -------------------------------------------------
 
-    const {
-      access_token,
-      refresh_token,
-      expires_in,
-      user_id
-    } = tokenData;
+    const expiresAt = new Date(
+      Date.now() + tokenData.expires_in * 1000
+    ).toISOString();
 
-
-    if (!access_token || !refresh_token || !user_id) {
-      throw new Error(
-        "Mercado Libre no devolvió los datos necesarios."
-      );
-    }
-
-
-    // ------------------------------------------
-    // 4. Obtener información del usuario
-    // ------------------------------------------
+    // -------------------------------------------------
+    // 5. Obtener información del usuario
+    // -------------------------------------------------
 
     const userResponse = await fetch(
-      `https://api.mercadolibre.com/users/${user_id}`,
+      `https://api.mercadolibre.com/users/${userId}`,
       {
         headers: {
-          Authorization: `Bearer ${access_token}`
+          Authorization: `Bearer ${accessToken}`
         }
       }
     );
+
+    if (!userResponse.ok) {
+      throw new Error(
+        `No se pudo obtener el usuario de Mercado Libre: ${userResponse.status}`
+      );
+    }
 
     const userData = await userResponse.json();
 
-    if (!userResponse.ok) {
-
-      console.error("Mercado Libre user error:", userData);
-
-      throw new Error(
-        "No se pudo obtener la información del usuario de Mercado Libre."
-      );
-    }
-
     const nickname = userData.nickname || null;
 
+    console.log("Mercado Libre conectado.");
+    console.log("User ID:", userId);
+    console.log("Nickname:", nickname);
 
-    // ------------------------------------------
-    // 5. Calcular expiración del Access Token
-    // ------------------------------------------
+    // -------------------------------------------------
+    // 6. Guardar cuenta en Supabase
+    // -------------------------------------------------
 
-    const expiresAt = new Date(
-      Date.now() + (expires_in * 1000)
-    ).toISOString();
-
-
-    // ------------------------------------------
-    // 6. Revisar si la cuenta ya existe
-    // ------------------------------------------
-
-    const existingResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/mercadolibre_accounts?user_id=eq.${user_id}&select=id`,
+    const supabaseResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/mercadolibre_accounts?on_conflict=user_id`,
       {
+        method: "POST",
+
         headers: {
           apikey: SUPABASE_SECRET_KEY,
-          Authorization: `Bearer ${SUPABASE_SECRET_KEY}`
-        }
+          Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=minimal"
+        },
+
+        body: JSON.stringify({
+          user_id: userId,
+          nickname: nickname,
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          expires_at: expiresAt
+        })
       }
     );
 
-    if (!existingResponse.ok) {
+    // -------------------------------------------------
+    // 7. Revisar respuesta de Supabase
+    // -------------------------------------------------
+
+    if (!supabaseResponse.ok) {
+      const errorText = await supabaseResponse.text();
+
+      console.error("Supabase error:", errorText);
+
       throw new Error(
-        `Error consultando Supabase: ${existingResponse.status}`
+        `No se pudo guardar la cuenta en Supabase: ${supabaseResponse.status}`
       );
     }
 
-    const existingAccounts = await existingResponse.json();
+    // -------------------------------------------------
+    // 8. Confirmación
+    // -------------------------------------------------
 
-
-    // ------------------------------------------
-    // 7. Guardar o actualizar la cuenta
-    // ------------------------------------------
-
-    const accountData = {
-      user_id: user_id,
-      nickname: nickname,
-      access_token: access_token,
-      refresh_token: refresh_token,
-      expires_at: expiresAt
-    };
-
-
-    if (existingAccounts.length > 0) {
-
-      // La cuenta ya existe → actualizarla
-
-      const accountId = existingAccounts[0].id;
-
-      const updateResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/mercadolibre_accounts?id=eq.${accountId}`,
-        {
-          method: "PATCH",
-
-          headers: {
-            apikey: SUPABASE_SECRET_KEY,
-            Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
-            "Content-Type": "application/json",
-            Prefer: "return=minimal"
-          },
-
-          body: JSON.stringify(accountData)
-        }
-      );
-
-      if (!updateResponse.ok) {
-        const errorData = await updateResponse.text();
-
-        throw new Error(
-          `Error actualizando Supabase: ${errorData}`
-        );
-      }
-
-      console.log(
-        `Cuenta Mercado Libre actualizada: ${user_id}`
-      );
-
-    } else {
-
-      // No existe → crearla
-
-      const insertResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/mercadolibre_accounts`,
-        {
-          method: "POST",
-
-          headers: {
-            apikey: SUPABASE_SECRET_KEY,
-            Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
-            "Content-Type": "application/json",
-            Prefer: "return=minimal"
-          },
-
-          body: JSON.stringify(accountData)
-        }
-      );
-
-      if (!insertResponse.ok) {
-        const errorData = await insertResponse.text();
-
-        throw new Error(
-          `Error guardando en Supabase: ${errorData}`
-        );
-      }
-
-      console.log(
-        `Nueva cuenta Mercado Libre guardada: ${user_id}`
-      );
-    }
-
-
-    // ------------------------------------------
-    // 8. Respuesta final
-    // ------------------------------------------
+    console.log(
+      `Mercado Libre conectado y guardado. User ID: ${userId}`
+    );
 
     res.send(`
       <h1>¡Mercado Libre conectado! ✅</h1>
 
-      <p>FINDR ya tiene acceso autorizado.</p>
+      <p><strong>Cuenta:</strong> ${
+        nickname || "Sin nickname"
+      }</p>
 
-      <p>
-        <strong>User ID:</strong> ${user_id}
-      </p>
+      <p>FINDR guardó correctamente la conexión en Supabase.</p>
 
-      <p>
-        <strong>Nickname:</strong> ${nickname || "No disponible"}
-      </p>
-
-      <p>
-        <strong>Cuenta guardada en FINDR:</strong> ✅
-      </p>
+      <p>Puedes cerrar esta ventana.</p>
     `);
 
-
   } catch (error) {
+
+    // -------------------------------------------------
+    // ERROR GENERAL
+    // -------------------------------------------------
 
     console.error("OAuth error:", error);
 
     res.status(500).send(`
       <h1>Error interno de FINDR ❌</h1>
-      <p>${error.message}</p>
+      <p>No se pudo completar la conexión con Mercado Libre.</p>
     `);
   }
 });
 
-
-// ==========================================
-// SERVER
-// ==========================================
+// =====================================================
+// SERVIDOR
+// =====================================================
 
 app.listen(PORT, () => {
   console.log(
