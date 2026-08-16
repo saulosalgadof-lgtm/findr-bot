@@ -618,7 +618,92 @@ ${JSON.stringify(
   }
 });
 
+// =====================================================
+// BUSCAR PUBLICACIONES EN MERCADO LIBRE
+// =====================================================
 
+app.get("/search-ml", async (req, res) => {
+
+  try {
+
+    const query = req.query.q;
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        error: "Debes proporcionar una búsqueda. Ejemplo: /search-ml?q=iphone"
+      });
+    }
+
+    const limit = Math.min(
+      Number(req.query.limit) || 10,
+      50
+    );
+
+    const offset = Number(req.query.offset) || 0;
+
+    const account =
+      await getValidMercadoLibreAccount();
+
+    const params = new URLSearchParams({
+      q: query,
+      limit: String(limit),
+      offset: String(offset)
+    });
+
+    const data =
+      await mercadoLibreRequest(
+        `/sites/MLM/search?${params.toString()}`
+      );
+
+    // -------------------------------------------------
+    // Devolvemos únicamente los datos que FINDR
+    // necesita inicialmente
+    // -------------------------------------------------
+
+    const listings = data.results.map(item => ({
+      id: item.id,
+      title: item.title,
+      price: item.price,
+      currency_id: item.currency_id,
+      condition: item.condition,
+      permalink: item.permalink,
+      seller_id: item.seller?.id || null,
+      seller_nickname: item.seller?.nickname || null,
+      category_id: item.category_id,
+      thumbnail: item.thumbnail,
+      available_quantity: item.available_quantity
+    }));
+
+    res.json({
+      success: true,
+
+      query,
+
+      total_results:
+        data.paging?.total || 0,
+
+      limit,
+
+      offset,
+
+      results: listings
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Error buscando en Mercado Libre:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+
+});
 // =====================================================
 // TEST MERCADO LIBRE
 // =====================================================
