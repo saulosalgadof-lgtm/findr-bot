@@ -411,7 +411,106 @@ ${JSON.stringify(tokenData, null, 2)}
   }
 });
 
+// ==========================================
+// PRUEBA DE CONEXIÓN CON MERCADO LIBRE
+// ==========================================
 
+app.get("/test-ml", async (req, res) => {
+  try {
+    // 1. Recuperar la cuenta guardada en Supabase
+    const accountResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/mercadolibre_accounts?select=user_id,access_token,nickname,expires_at&limit=1`,
+      {
+        headers: {
+          apikey: SUPABASE_SECRET_KEY,
+          Authorization: `Bearer ${SUPABASE_SECRET_KEY}`
+        }
+      }
+    );
+
+    if (!accountResponse.ok) {
+      throw new Error(
+        `Error consultando Supabase: ${accountResponse.status}`
+      );
+    }
+
+    const accounts = await accountResponse.json();
+
+    if (!accounts.length) {
+      return res.status(404).send(
+        "No hay una cuenta de Mercado Libre guardada."
+      );
+    }
+
+    const account = accounts[0];
+
+    // 2. Usar el Access Token guardado
+    const mlResponse = await fetch(
+      "https://api.mercadolibre.com/users/me",
+      {
+        headers: {
+          Authorization: `Bearer ${account.access_token}`
+        }
+      }
+    );
+
+    const mlData = await mlResponse.json();
+
+    if (!mlResponse.ok) {
+      console.error(
+        "Mercado Libre API error:",
+        mlData
+      );
+
+      return res.status(mlResponse.status).send(`
+        <h1>Error de Mercado Libre ❌</h1>
+        <pre>${JSON.stringify(mlData, null, 2)}</pre>
+      `);
+    }
+
+    // 3. Mostrar únicamente información NO sensible
+    res.send(`
+      <h1>FINDR conectado correctamente 🚀</h1>
+
+      <p>
+        <strong>User ID:</strong>
+        ${mlData.id}
+      </p>
+
+      <p>
+        <strong>Nickname:</strong>
+        ${mlData.nickname || "No disponible"}
+      </p>
+
+      <p>
+        <strong>País:</strong>
+        ${mlData.country_id || "No disponible"}
+      </p>
+
+      <p>
+        Token recuperado desde Supabase: ✅
+      </p>
+
+      <p>
+        Mercado Libre API respondió: ✅
+      </p>
+    `);
+
+  } catch (error) {
+    console.error(
+      "Test ML error:",
+      error
+    );
+
+    res.status(500).send(`
+      <h1>Error en la prueba ❌</h1>
+
+      <p>
+        ${error.message}
+      </p>
+    `);
+  }
+});
 // ==========================================
 // SERVIDOR
 // ==========================================
