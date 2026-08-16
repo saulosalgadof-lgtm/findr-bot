@@ -704,6 +704,70 @@ app.get("/search-ml", async (req, res) => {
   }
 
 });
+
+// =====================================================
+// TEST BÚSQUEDA PÚBLICA MERCADO LIBRE
+// =====================================================
+
+app.get("/test-search-public", async (req, res) => {
+  try {
+    const query = req.query.q || "iphone";
+
+    const params = new URLSearchParams({
+      q: query,
+      limit: "5"
+    });
+
+    console.log(
+      "Probando búsqueda pública de Mercado Libre:",
+      query
+    );
+
+    const response = await fetch(
+      `https://api.mercadolibre.com/sites/MLM/search?${params.toString()}`,
+      {
+        headers: {
+          accept: "application/json"
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    console.log(
+      "Respuesta búsqueda pública:",
+      response.status
+    );
+
+    if (!response.ok) {
+      return res.status(response.status).json({
+        success: false,
+        status: response.status,
+        error: data
+      });
+    }
+
+    res.json({
+      success: true,
+      query,
+      total_results: data.paging?.total || 0,
+      results: data.results?.slice(0, 5) || []
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Error búsqueda pública:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // =====================================================
 // TEST MERCADO LIBRE
 // =====================================================
