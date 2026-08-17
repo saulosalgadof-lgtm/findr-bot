@@ -1668,18 +1668,21 @@ app.get(
           success: false,
 
           error:
-            "Debes proporcionar q. Ejemplo: /catalog-hunter-discovery?q=Apple+iPhone+13"
+            "Debes proporcionar q. Ejemplo: /catalog-hunter-discovery?q=Apple+iPhone"
 
         });
       }
 
+      // Número de productos que vamos a revisar
       const limit =
         Math.min(
-          Number(req.query.limit) || 20,
+          Number(req.query.limit) || 50,
           50
         );
 
-      const targetCandidates =
+      // Número de productos con competencia
+      // que queremos encontrar antes de detenernos.
+      const target =
         Math.min(
           Number(req.query.target) || 5,
           10
@@ -1699,19 +1702,502 @@ app.get(
       );
 
       console.log(
-        "Productos a revisar:",
+        "Productos máximos:",
         limit
       );
 
       console.log(
         "Candidatos objetivo:",
-        targetCandidates
+        target
       );
 
       console.log(
         "======================================"
       );
 
+      // =================================================
+      // 1. BUSCAR PRODUCTOS
+      // =================================================
+
+      const searchParams =
+        new URLSearchParams({
+
+          status:
+            "active",
+
+          site_id:
+            "MLM",
+
+          q:
+            query,
+
+          limit:
+            String(limit)
+
+        });
+
+      const searchData =
+        await mercadoLibreRequest(
+          `/products/search?${searchParams.toString()}`
+        );
+
+      const products =
+        searchData.results || [];
+
+      console.log(
+        "Productos encontrados:",
+        products.length
+      );
+
+      // =================================================
+      // 2. ANALIZAR CADA PRODUCTO
+      // =================================================
+
+      const candidates = [];
+
+      const analyzed = [];
+
+      for (
+        const product
+        of products
+      ) {
+
+        // -----------------------------------------------
+        // Detenernos cuando encontremos suficientes
+        // candidatos.
+        // -----------------------------------------------
+
+        if (
+          candidates.length >=
+          target
+        ) {
+
+          break;
+        }
+
+        try {
+
+          console.log(
+            "--------------------------------------"
+          );
+
+          console.log(
+            "Analizando producto:",
+            product.id
+          );
+
+          console.log(
+            "Nombre:",
+            product.name
+          );
+
+          // ---------------------------------------------
+          // Obtener detalle del producto
+          // ---------------------------------------------
+
+          const detail =
+            await mercadoLibreRequest(
+              `/products/${encodeURIComponent(
+                product.id
+              )}`
+            );
+
+          // ---------------------------------------------
+          // Solo analizamos productos activos
+          // ---------------------------------------------
+
+          if (
+            detail.status !==
+            "active"
+          ) {
+
+            console.log(
+              "Producto inactivo. Se descarta."
+            );
+
+            analyzed.push({
+
+              product_id:
+                detail.id,
+
+              name:
+                detail.name,
+
+              status:
+                detail.status,
+
+              has_competition:
+                false,
+
+              reason:
+                "inactive_product"
+
+            });
+
+            continue;
+          }
+
+          // ---------------------------------------------
+          // Buscar publicaciones competidoras
+          // ---------------------------------------------
+
+          let competition = null;
+
+          try {
+
+            competition =
+              await mercadoLibreRequest(
+                `/products/${encodeURIComponent(
+                  detail.id
+                )}/items`
+              );
+
+          } catch (competitionError) {
+
+            // -------------------------------------------
+            // Mercado Libre devuelve 404 cuando no hay
+            // publicaciones ganadoras/competidoras.
+            // -------------------------------------------
+
+            if (
+              competitionError.status ===
+              404
+            ) {
+
+              console.log(
+                "Sin publicaciones competidoras:",
+                detail.id
+              );
+
+              analyzed.push({
+
+                product_id:
+                  detail.id,
+
+                name:
+                  detail.name,
+
+                family_name:
+                  detail.family_name ||
+                  null,
+
+                domain_id:
+                  detail.domain_id ||
+                  null,
+
+                status:
+                  detail.status,
+
+                sold_quantity:
+                  detail.sold_quantity ||
+                  0,
+
+                has_competition:
+                  false,
+
+                reason:
+                  "no_competition"
+
+              });
+
+              continue;
+            }
+
+            throw competitionError;
+          }
+
+          // ---------------------------------------------
+          // Extraer publicaciones
+          // ---------------------------------------------
+
+          const items =
+            competition?.results ||
+            [];
+
+          console.log(
+            "Publicaciones encontradas:",
+            items.length
+          );
+
+          // ---------------------------------------------
+          // Si no hay resultados, descartar
+          // ---------------------------------------------
+
+          if (
+            items.length ===
+            0
+          ) {
+
+            analyzed.push({
+
+              product_id:
+                detail.id,
+
+              name:
+                detail.name,
+
+              family_name:
+                detail.family_name ||
+                null,
+
+              domain_id:
+                detail.domain_id ||
+                null,
+
+              status:
+                detail.status,
+
+              sold_quantity:
+                detail.sold_quantity ||
+                0,
+
+              has_competition:
+                false,
+
+              reason:
+                "empty_competition"
+
+            });
+
+            continue;
+          }
+
+          // ---------------------------------------------
+          // Normalizar publicaciones
+          // ---------------------------------------------
+
+          const competitors =
+            items.map(
+              (item) => ({
+
+                item_id:
+                  item.item_id ||
+                  null,
+
+                site_id:
+                  item.site_id ||
+                  null,
+
+                seller_id:
+                  item.seller_id ||
+                  null,
+
+                price:
+                  item.price ||
+                  null,
+
+                currency_id:
+                  item.currency_id ||
+                  null,
+
+                original_price:
+                  item.original_price ||
+                  null,
+
+                condition:
+                  item.condition ||
+                  null,
+
+                category_id:
+                  item.category_id ||
+                  null,
+
+                listing_type_id:
+                  item.listing_type_id ||
+                  null,
+
+                available_quantity:
+                  item.available_quantity ||
+                  null,
+
+                shipping:
+                  item.shipping ||
+                  null,
+
+                official_store_id:
+                  item.official_store_id ||
+                  null
+
+              })
+            );
+
+          // ---------------------------------------------
+          // Crear candidato
+          // ---------------------------------------------
+
+          const candidate = {
+
+            product_id:
+              detail.id,
+
+            name:
+              detail.name,
+
+            family_name:
+              detail.family_name ||
+              null,
+
+            domain_id:
+              detail.domain_id ||
+              null,
+
+            status:
+              detail.status,
+
+            product_sold_quantity:
+              detail.sold_quantity ||
+              0,
+
+            buy_box_winner:
+              detail.buy_box_winner ||
+              null,
+
+            competitors_count:
+              competitors.length,
+
+            competitors
+
+          };
+
+          candidates.push(
+            candidate
+          );
+
+          analyzed.push({
+
+            product_id:
+              detail.id,
+
+            name:
+              detail.name,
+
+            domain_id:
+              detail.domain_id ||
+              null,
+
+            status:
+              detail.status,
+
+            competitors_count:
+              competitors.length,
+
+            has_competition:
+              true
+
+          });
+
+          console.log(
+            "🔥 CANDIDATO ENCONTRADO:",
+            detail.id
+          );
+
+        } catch (error) {
+
+          console.error(
+            "Error analizando producto:",
+            product.id,
+            error.message
+          );
+
+          analyzed.push({
+
+            product_id:
+              product.id,
+
+            name:
+              product.name,
+
+            has_competition:
+              false,
+
+            reason:
+              "analysis_error",
+
+            error:
+              error.message
+
+          });
+        }
+      }
+
+      // =================================================
+      // 3. RESULTADO
+      // =================================================
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "CATALOG HUNTER TERMINADO"
+      );
+
+      console.log(
+        "Productos revisados:",
+        analyzed.length
+      );
+
+      console.log(
+        "Candidatos encontrados:",
+        candidates.length
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      res.json({
+
+        success:
+          true,
+
+        query,
+
+        search_total:
+          searchData.paging?.total ||
+          products.length,
+
+        products_returned:
+          products.length,
+
+        products_analyzed:
+          analyzed.length,
+
+        candidates_found:
+          candidates.length,
+
+        candidates,
+
+        analyzed
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "❌ Error en Catalog Hunter:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+    }
+  }
+);
       // ------------------------------------------------
       // 1. BUSCAR PRODUCTOS
       // ------------------------------------------------
