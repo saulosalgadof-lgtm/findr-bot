@@ -2841,6 +2841,70 @@ app.get(
   }
 );
 // =====================================================
+// FINDR - MARKET TRENDS
+// =====================================================
+
+app.get(
+  "/market-trends",
+  async (req, res) => {
+
+    try {
+
+      const data =
+        await mercadoLibreRequest(
+          "/trends/MLM"
+        );
+
+      const trends =
+        Array.isArray(data)
+          ? data
+          : [];
+
+      res.json({
+
+        success:
+          true,
+
+        site_id:
+          "MLM",
+
+        total:
+          trends.length,
+
+        trends
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Market trends error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
+
+// =====================================================
 // SERVIDOR
 // =====================================================
 
