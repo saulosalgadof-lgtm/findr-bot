@@ -1004,7 +1004,115 @@ ${error.message}
     }
   }
 );
+// =====================================================
+// PRUEBA DE BÚSQUEDA GENERAL SIN TOKEN
+// =====================================================
 
+app.get(
+  "/search-general-test",
+  async (req, res) => {
+
+    try {
+
+      const query =
+        req.query.q || "iphone";
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 3,
+          10
+        );
+
+      const params =
+        new URLSearchParams({
+          q: query,
+          limit: String(limit)
+        });
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "PRUEBA BÚSQUEDA GENERAL SIN TOKEN"
+      );
+
+      console.log(
+        "Query:",
+        query
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      const response =
+        await fetch(
+          `https://api.mercadolibre.com/sites/MLM/search?${params.toString()}`
+        );
+
+      const data =
+        await response.json();
+
+      console.log(
+        "Status Mercado Libre:",
+        response.status
+      );
+
+      console.log(
+        "Respuesta:",
+        JSON.stringify(
+          data,
+          null,
+          2
+        )
+      );
+
+      res.status(
+        response.status
+      ).json({
+
+        success:
+          response.ok,
+
+        status:
+          response.status,
+
+        query,
+
+        total:
+          data.paging?.total ||
+          null,
+
+        results:
+          data.results ||
+          [],
+
+        error:
+          response.ok
+            ? null
+            : data
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Error búsqueda general:",
+        error
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        error:
+          error.message
+
+      });
+    }
+  }
+);
 // =====================================================
 // DIAGNÓSTICO DE BÚSQUEDA
 // =====================================================
