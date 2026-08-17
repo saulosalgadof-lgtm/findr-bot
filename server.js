@@ -1,7 +1,9 @@
 import express from "express";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+
+const PORT =
+  process.env.PORT || 3000;
 
 app.use(express.json());
 
@@ -9,8 +11,11 @@ app.use(express.json());
 // CONFIGURACIÓN
 // =====================================================
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
+const SUPABASE_URL =
+  process.env.SUPABASE_URL;
+
+const SUPABASE_SECRET_KEY =
+  process.env.SUPABASE_SECRET_KEY;
 
 const MERCADOLIBRE_CLIENT_ID =
   process.env.MERCADOLIBRE_CLIENT_ID;
@@ -22,12 +27,20 @@ const MERCADOLIBRE_REDIRECT_URI =
   process.env.MERCADOLIBRE_REDIRECT_URI;
 
 // =====================================================
-// INICIO
+// VALIDACIÓN DE CONFIGURACIÓN
 // =====================================================
 
-console.log("======================================");
-console.log("FINDR BOT - INICIANDO");
-console.log("======================================");
+console.log(
+  "======================================"
+);
+
+console.log(
+  "FINDR BOT - INICIANDO"
+);
+
+console.log(
+  "======================================"
+);
 
 console.log(
   "SUPABASE_URL:",
@@ -54,66 +67,110 @@ console.log(
   MERCADOLIBRE_REDIRECT_URI ? "OK" : "FALTA"
 );
 
-console.log("======================================");
+console.log(
+  "======================================"
+);
+
 
 // =====================================================
-// SUPABASE
+// SUPABASE REQUEST
 // =====================================================
 
-async function supabaseRequest(endpoint, options = {}) {
+async function supabaseRequest(
+  endpoint,
+  options = {}
+) {
 
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/${endpoint}`,
-    {
-      ...options,
+  const response =
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/${endpoint}`,
+      {
 
-      headers: {
-        apikey: SUPABASE_SECRET_KEY,
+        ...options,
 
-        Authorization:
-          `Bearer ${SUPABASE_SECRET_KEY}`,
+        headers: {
 
-        "Content-Type":
-          "application/json",
+          apikey:
+            SUPABASE_SECRET_KEY,
 
-        ...(options.headers || {})
+          Authorization:
+            `Bearer ${SUPABASE_SECRET_KEY}`,
+
+          "Content-Type":
+            "application/json",
+
+          ...(options.headers || {})
+
+        }
+
       }
-    }
-  );
+    );
 
-  const text = await response.text();
+  const text =
+    await response.text();
 
   let data;
 
   try {
-    data = text ? JSON.parse(text) : null;
+
+    data =
+      text
+        ? JSON.parse(text)
+        : null;
+
   } catch {
-    data = text;
+
+    data =
+      text;
+
   }
 
   if (!response.ok) {
 
-    throw new Error(
-      `Supabase ${response.status}: ${JSON.stringify(data)}`
-    );
+    const error =
+      new Error(
+        `Supabase ${response.status}: ${JSON.stringify(data)}`
+      );
+
+    error.status =
+      response.status;
+
+    error.data =
+      data;
+
+    throw error;
   }
 
   return data;
 }
 
+
 // =====================================================
 // GUARDAR CUENTA MERCADO LIBRE
 // =====================================================
 
-async function saveMercadoLibreAccount(tokenData) {
+async function saveMercadoLibreAccount(
+  tokenData
+) {
 
-  const userId = tokenData.user_id;
+  if (!tokenData.user_id) {
 
-  if (!userId) {
     throw new Error(
       "Mercado Libre no devolvió user_id."
     );
+
   }
+
+  if (!tokenData.access_token) {
+
+    throw new Error(
+      "Mercado Libre no devolvió access_token."
+    );
+
+  }
+
+  const userId =
+    tokenData.user_id;
 
   const existing =
     await supabaseRequest(
@@ -145,6 +202,9 @@ async function saveMercadoLibreAccount(tokenData) {
     access_token:
       tokenData.access_token,
 
+    // MUY IMPORTANTE:
+    // cada refresh puede generar
+    // un nuevo refresh_token.
     refresh_token:
       tokenData.refresh_token ||
       currentAccount?.refresh_token ||
@@ -152,6 +212,7 @@ async function saveMercadoLibreAccount(tokenData) {
 
     expires_at:
       expiresAt
+
   };
 
   if (currentAccount) {
@@ -159,15 +220,22 @@ async function saveMercadoLibreAccount(tokenData) {
     await supabaseRequest(
       `mercadolibre_accounts?user_id=eq.${userId}`,
       {
-        method: "PATCH",
+
+        method:
+          "PATCH",
 
         headers: {
+
           Prefer:
             "return=minimal"
+
         },
 
         body:
-          JSON.stringify(accountData)
+          JSON.stringify(
+            accountData
+          )
+
       }
     );
 
@@ -182,23 +250,31 @@ async function saveMercadoLibreAccount(tokenData) {
   await supabaseRequest(
     "mercadolibre_accounts",
     {
-      method: "POST",
+
+      method:
+        "POST",
 
       headers: {
+
         Prefer:
           "return=minimal"
+
       },
 
       body:
-        JSON.stringify(accountData)
+        JSON.stringify(
+          accountData
+        )
+
     }
   );
 
   console.log(
-    "Nueva cuenta Mercado Libre guardada:",
+    "Cuenta Mercado Libre guardada:",
     userId
   );
 }
+
 
 // =====================================================
 // OBTENER CUENTA MERCADO LIBRE
@@ -219,10 +295,12 @@ async function getMercadoLibreAccount() {
     throw new Error(
       "No existe ninguna cuenta de Mercado Libre conectada."
     );
+
   }
 
   return accounts[0];
 }
+
 
 // =====================================================
 // REFRESH TOKEN
@@ -237,6 +315,7 @@ async function refreshMercadoLibreToken(
     throw new Error(
       "La cuenta no tiene refresh_token. Hay que volver a autorizar Mercado Libre."
     );
+
   }
 
   console.log(
@@ -247,14 +326,18 @@ async function refreshMercadoLibreToken(
     await fetch(
       "https://api.mercadolibre.com/oauth/token",
       {
-        method: "POST",
+
+        method:
+          "POST",
 
         headers: {
+
           accept:
             "application/json",
 
           "content-type":
             "application/x-www-form-urlencoded"
+
         },
 
         body:
@@ -271,7 +354,9 @@ async function refreshMercadoLibreToken(
 
             refresh_token:
               account.refresh_token
+
           })
+
       }
     );
 
@@ -288,6 +373,7 @@ async function refreshMercadoLibreToken(
     throw new Error(
       `No se pudo refrescar el token: ${JSON.stringify(tokenData)}`
     );
+
   }
 
   await saveMercadoLibreAccount({
@@ -299,10 +385,11 @@ async function refreshMercadoLibreToken(
 
     nickname:
       account.nickname
+
   });
 
   console.log(
-    "Access Token actualizado correctamente."
+    "Access Token actualizado."
   );
 
   return {
@@ -321,8 +408,10 @@ async function refreshMercadoLibreToken(
         Date.now() +
         (tokenData.expires_in || 0) * 1000
       ).toISOString()
+
   };
 }
+
 
 // =====================================================
 // OBTENER CUENTA CON TOKEN VÁLIDO
@@ -340,25 +429,31 @@ async function getValidMercadoLibreAccount() {
         ).getTime()
       : 0;
 
-  const now =
+  const remaining =
+    expiresAt -
     Date.now();
+
+  // Renovamos si quedan menos
+  // de 2 minutos.
 
   if (
     !expiresAt ||
-    expiresAt - now < 60 * 1000
+    remaining < 120000
   ) {
 
     account =
       await refreshMercadoLibreToken(
         account
       );
+
   }
 
   return account;
 }
 
+
 // =====================================================
-// CLIENTE API MERCADO LIBRE
+// REQUEST A MERCADO LIBRE
 // =====================================================
 
 async function mercadoLibreRequest(
@@ -369,7 +464,7 @@ async function mercadoLibreRequest(
     await getValidMercadoLibreAccount();
 
   console.log(
-    "Consultando Mercado Libre:",
+    "ML REQUEST:",
     endpoint
   );
 
@@ -377,6 +472,7 @@ async function mercadoLibreRequest(
     await fetch(
       `https://api.mercadolibre.com${endpoint}`,
       {
+
         headers: {
 
           Authorization:
@@ -384,25 +480,25 @@ async function mercadoLibreRequest(
 
           accept:
             "application/json"
+
         }
+
       }
     );
 
   let data =
     await response.json();
 
-  // -----------------------------------------------
-  // TOKEN INVÁLIDO
-  // -----------------------------------------------
+  // ---------------------------------------------------
+  // ACCESS TOKEN INVÁLIDO
+  // ---------------------------------------------------
 
   if (
-    response.status === 401 ||
-    data?.message ===
-      "invalid access token"
+    response.status === 401
   ) {
 
     console.log(
-      "Access Token inválido. Intentando refresh..."
+      "Token inválido. Ejecutando refresh..."
     );
 
     account =
@@ -414,6 +510,7 @@ async function mercadoLibreRequest(
       await fetch(
         `https://api.mercadolibre.com${endpoint}`,
         {
+
           headers: {
 
             Authorization:
@@ -421,12 +518,15 @@ async function mercadoLibreRequest(
 
             accept:
               "application/json"
+
           }
+
         }
       );
 
     data =
       await response.json();
+
   }
 
   if (!response.ok) {
@@ -443,10 +543,12 @@ async function mercadoLibreRequest(
       data;
 
     throw error;
+
   }
 
   return data;
 }
+
 
 // =====================================================
 // HOME
@@ -463,75 +565,59 @@ app.get(
 
       res.send(`
 
-        <h1>
-          Findr Bot activo 🚀
-        </h1>
+        <h1>FINDR Bot 🚀</h1>
 
         <p>
-          Mercado Libre: conectado ✅
+          Mercado Libre:
+          <strong>Conectado ✅</strong>
         </p>
 
         <p>
-          Supabase: conectado ✅
+          Supabase:
+          <strong>Conectado ✅</strong>
         </p>
 
         <p>
-          Usuario ML:
+          User ID:
           ${account.user_id}
         </p>
 
         <p>
           Nickname:
-          ${account.nickname || "No disponible"}
+          ${account.nickname || "N/A"}
         </p>
 
         <hr>
 
-        <p>
-          <a href="/auth/mercadolibre">
-            Conectar Mercado Libre
-          </a>
-        </p>
+        <h3>Herramientas</h3>
 
         <p>
           <a href="/test-ml">
-            Probar Mercado Libre
-          </a>
-        </p>
-
-        <p>
-          <a href="/test-supabase">
-            Probar Supabase
-          </a>
-        </p>
-
-        <p>
-          <a href="/diagnostic-search">
-            Diagnóstico de búsqueda
-          </a>
-        </p>
-
-        <p>
-          <a href="/products-search?q=iphone&limit=10">
-            Buscar productos
-          </a>
-        </p>
-
-        <p>
-          <a href="/product-detail?product_id=MLM6055020">
-            Probar detalle de producto
-          </a>
-        </p>
-
-        <p>
-          <a href="/product-items?product_id=MLM6055020">
-            Probar publicaciones de producto
+            Test Mercado Libre
           </a>
         </p>
 
         <p>
           <a href="/notifications-test">
-            Probar endpoint de notificaciones
+            Test Notifications
+          </a>
+        </p>
+
+        <p>
+          <a href="/products-search?q=Apple+iPhone+13&limit=10">
+            Product Search
+          </a>
+        </p>
+
+        <p>
+          <a href="/catalog-discovery-v2?q=Apple+iPhone+13&limit=20">
+            Discovery V2
+          </a>
+        </p>
+
+        <p>
+          <a href="/item-detail?item_id=MLM3222968557">
+            Item Detail
           </a>
         </p>
 
@@ -539,24 +625,13 @@ app.get(
 
     } catch (error) {
 
-      console.error(error);
-
       res.send(`
 
-        <h1>
-          Findr Bot activo 🚀
-        </h1>
+        <h1>FINDR Bot 🚀</h1>
 
         <p>
-          Supabase: conectado ✅
-        </p>
-
-        <p>
-          Mercado Libre: no conectado ⚠️
-        </p>
-
-        <p>
-          ${error.message}
+          Mercado Libre:
+          <strong>No conectado ⚠️</strong>
         </p>
 
         <p>
@@ -565,10 +640,18 @@ app.get(
           </a>
         </p>
 
+        <p>
+          Error:
+          ${error.message}
+        </p>
+
       `);
+
     }
+
   }
 );
+
 
 // =====================================================
 // OAUTH - INICIAR
@@ -581,7 +664,7 @@ app.get(
     const authorizationUrl =
       "https://auth.mercadolibre.com.mx/authorization" +
 
-      `?response_type=code` +
+      "?response_type=code" +
 
       `&client_id=${encodeURIComponent(
         MERCADOLIBRE_CLIENT_ID
@@ -594,8 +677,10 @@ app.get(
     res.redirect(
       authorizationUrl
     );
+
   }
 );
+
 
 // =====================================================
 // OAUTH - CALLBACK
@@ -628,6 +713,7 @@ app.get(
         </p>
 
       `);
+
     }
 
     if (!code) {
@@ -635,16 +721,18 @@ app.get(
       return res.status(400).send(
         "No se recibió código OAuth."
       );
+
     }
 
     try {
 
-      const tokenResponse =
+      const response =
         await fetch(
           "https://api.mercadolibre.com/oauth/token",
           {
 
-            method: "POST",
+            method:
+              "POST",
 
             headers: {
 
@@ -653,6 +741,7 @@ app.get(
 
               "content-type":
                 "application/x-www-form-urlencoded"
+
             },
 
             body:
@@ -672,17 +761,19 @@ app.get(
 
                 redirect_uri:
                   MERCADOLIBRE_REDIRECT_URI
+
               })
+
           }
         );
 
       const tokenData =
-        await tokenResponse.json();
+        await response.json();
 
-      if (!tokenResponse.ok) {
+      if (!response.ok) {
 
         console.error(
-          "Mercado Libre OAuth error:",
+          "OAuth error:",
           tokenData
         );
 
@@ -701,6 +792,7 @@ ${JSON.stringify(
           </pre>
 
         `);
+
       }
 
       await saveMercadoLibreAccount(
@@ -710,24 +802,22 @@ ${JSON.stringify(
       res.send(`
 
         <h1>
-          ¡Mercado Libre conectado! ✅
+          Mercado Libre conectado ✅
         </h1>
 
         <p>
-          FINDR recibió correctamente
-          los tokens.
-        </p>
-
-        <p>
           User ID:
-          <strong>
-            ${tokenData.user_id}
-          </strong>
+          ${tokenData.user_id}
         </p>
 
         <p>
-          La conexión fue guardada
-          en Supabase.
+          Tokens guardados correctamente.
+        </p>
+
+        <p>
+          <a href="/test-ml">
+            Probar conexión
+          </a>
         </p>
 
       `);
@@ -735,24 +825,90 @@ ${JSON.stringify(
     } catch (error) {
 
       console.error(
-        "OAuth error:",
+        "OAuth callback error:",
         error
       );
 
       res.status(500).send(`
 
         <h1>
-          Error interno de FINDR ❌
+          Error interno ❌
         </h1>
 
-        <p>
-          ${error.message}
-        </p>
+        <pre>
+${error.message}
+        </pre>
 
       `);
+
     }
+
   }
 );
+
+
+// =====================================================
+// TEST MERCADO LIBRE
+// =====================================================
+
+app.get(
+  "/test-ml",
+  async (req, res) => {
+
+    try {
+
+      const account =
+        await getValidMercadoLibreAccount();
+
+      const user =
+        await mercadoLibreRequest(
+          `/users/${account.user_id}`
+        );
+
+      res.json({
+
+        success:
+          true,
+
+        user_id:
+          user.id,
+
+        nickname:
+          user.nickname || null,
+
+        country:
+          user.country_id || null,
+
+        access_token:
+          "valid"
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Test ML error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
+
 
 // =====================================================
 // NOTIFICACIONES MERCADO LIBRE
@@ -763,7 +919,11 @@ app.post(
   (req, res) => {
 
     console.log(
-      "📩 Notificación de Mercado Libre:"
+      "======================================"
+    );
+
+    console.log(
+      "📩 NOTIFICACIÓN MERCADO LIBRE"
     );
 
     console.log(
@@ -774,22 +934,31 @@ app.post(
       )
     );
 
+    console.log(
+      "======================================"
+    );
+
+    // Respondemos inmediatamente.
     res.sendStatus(200);
 
     processMercadoLibreNotification(
       req.body
-    ).catch(
+    )
+    .catch(
       (error) => {
 
         console.error(
-          "❌ Error procesando notificación:",
+          "Error procesando notificación:",
           error
+
         );
 
       }
     );
+
   }
 );
+
 
 // =====================================================
 // PROCESAR NOTIFICACIÓN
@@ -827,10 +996,14 @@ async function processMercadoLibreNotification(
     userId
   );
 
-  if (topic !== "items") {
+  // Por ahora procesamos items.
+  if (
+    topic !== "items"
+  ) {
 
     console.log(
-      `Topic "${topic}" todavía no está implementado.`
+      "Topic no implementado:",
+      topic
     );
 
     return;
@@ -839,7 +1012,7 @@ async function processMercadoLibreNotification(
   if (!resource) {
 
     console.log(
-      "La notificación no contiene resource."
+      "Notificación sin resource."
     );
 
     return;
@@ -849,11 +1022,6 @@ async function processMercadoLibreNotification(
     await mercadoLibreRequest(
       resource
     );
-
-  console.log(
-    "✅ Item obtenido:",
-    item.id
-  );
 
   const itemData = {
 
@@ -908,6 +1076,7 @@ async function processMercadoLibreNotification(
 
     updated_at:
       new Date().toISOString()
+
   };
 
   await supabaseRequest(
@@ -921,10 +1090,14 @@ async function processMercadoLibreNotification(
 
         Prefer:
           "resolution=merge-duplicates,return=minimal"
+
       },
 
       body:
-        JSON.stringify(itemData)
+        JSON.stringify(
+          itemData
+        )
+
     }
   );
 
@@ -933,6 +1106,7 @@ async function processMercadoLibreNotification(
     item.id
   );
 }
+
 
 // =====================================================
 // TEST NOTIFICACIONES
@@ -948,280 +1122,19 @@ app.get(
         true,
 
       message:
-        "Endpoint de notificaciones activo",
-
-      endpoint:
-        "/notifications",
+        "Endpoint /notifications activo.",
 
       method:
         "POST"
 
     });
+
   }
 );
 
-// =====================================================
-// TEST MERCADO LIBRE
-// =====================================================
-
-app.get(
-  "/test-ml",
-  async (req, res) => {
-
-    try {
-
-      const account =
-        await getValidMercadoLibreAccount();
-
-      const userData =
-        await mercadoLibreRequest(
-          `/users/${account.user_id}`
-        );
-
-      res.send(`
-
-        <h1>
-          Mercado Libre funcionando 🚀
-        </h1>
-
-        <p>
-          Conexión: ✅
-        </p>
-
-        <p>
-          User ID:
-          <strong>
-            ${userData.id}
-          </strong>
-        </p>
-
-        <p>
-          Nickname:
-          <strong>
-            ${userData.nickname || "N/A"}
-          </strong>
-        </p>
-
-        <p>
-          País:
-          <strong>
-            ${userData.country_id || "N/A"}
-          </strong>
-        </p>
-
-        <p>
-          Access Token válido: ✅
-        </p>
-
-      `);
-
-    } catch (error) {
-
-      console.error(
-        "Test ML error:",
-        error
-      );
-
-      res.status(
-        error.status || 500
-      ).send(`
-
-        <h1>
-          Error de Mercado Libre ❌
-        </h1>
-
-        <pre>
-${error.message}
-        </pre>
-
-      `);
-    }
-  }
-);
 
 // =====================================================
-// DIAGNÓSTICO DE BÚSQUEDA
-// =====================================================
-
-app.get(
-  "/diagnostic-search",
-  async (req, res) => {
-
-    const results = {};
-
-    // -----------------------------------------
-    // SEARCH BÁSICO
-    // -----------------------------------------
-
-    try {
-
-      const data =
-        await mercadoLibreRequest(
-          "/sites/MLM/search?limit=1"
-        );
-
-      results.search_basic = {
-
-        success: true,
-
-        status: 200,
-
-        total:
-          data.paging?.total ||
-          null,
-
-        first_item:
-          data.results?.[0]?.id ||
-          null
-
-      };
-
-    } catch (error) {
-
-      results.search_basic = {
-
-        success: false,
-
-        status:
-          error.status ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      };
-    }
-
-    // -----------------------------------------
-    // SEARCH POR TEXTO
-    // -----------------------------------------
-
-    try {
-
-      const data =
-        await mercadoLibreRequest(
-          "/sites/MLM/search?q=iphone&limit=1"
-        );
-
-      results.search_query = {
-
-        success: true,
-
-        status: 200,
-
-        total:
-          data.paging?.total ||
-          null,
-
-        first_item:
-          data.results?.[0]?.id ||
-          null,
-
-        first_title:
-          data.results?.[0]?.title ||
-          null
-
-      };
-
-    } catch (error) {
-
-      results.search_query = {
-
-        success: false,
-
-        status:
-          error.status ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      };
-    }
-
-    // -----------------------------------------
-    // PRODUCTS SEARCH
-    // -----------------------------------------
-
-    try {
-
-      const params =
-        new URLSearchParams({
-
-          status:
-            "active",
-
-          site_id:
-            "MLM",
-
-          q:
-            "iphone",
-
-          limit:
-            "1"
-
-        });
-
-      const data =
-        await mercadoLibreRequest(
-          `/products/search?${params.toString()}`
-        );
-
-      results.products_search = {
-
-        success: true,
-
-        status: 200,
-
-        total:
-          data.paging?.total ||
-          null,
-
-        first_product:
-          data.results?.[0]?.id ||
-          null,
-
-        first_name:
-          data.results?.[0]?.name ||
-          null
-
-      };
-
-    } catch (error) {
-
-      results.products_search = {
-
-        success: false,
-
-        status:
-          error.status ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      };
-    }
-
-    res.json({
-
-      success:
-        true,
-
-      message:
-        "Diagnóstico completado.",
-
-      results
-
-    });
-  }
-);
-
-// =====================================================
-// BÚSQUEDA DE PRODUCTOS DE CATÁLOGO
+// PRODUCT SEARCH
 // =====================================================
 
 app.get(
@@ -1240,9 +1153,10 @@ app.get(
           success: false,
 
           error:
-            "Debes proporcionar una búsqueda. Ejemplo: /products-search?q=iphone"
+            "Debes proporcionar q."
 
         });
+
       }
 
       const limit =
@@ -1252,7 +1166,10 @@ app.get(
         );
 
       const offset =
-        Number(req.query.offset) || 0;
+        Math.max(
+          Number(req.query.offset) || 0,
+          0
+        );
 
       const params =
         new URLSearchParams({
@@ -1299,7 +1216,7 @@ app.get(
     } catch (error) {
 
       console.error(
-        "Error buscando productos:",
+        "Product search error:",
         error
       );
 
@@ -1307,7 +1224,8 @@ app.get(
         error.status || 500
       ).json({
 
-        success: false,
+        success:
+          false,
 
         status:
           error.status ||
@@ -1318,11 +1236,201 @@ app.get(
           error.message
 
       });
+
     }
+
   }
 );
+
+
 // =====================================================
-// DETALLE DE PUBLICACIÓN
+// PRODUCT DETAIL
+// =====================================================
+
+app.get(
+  "/product-detail",
+  async (req, res) => {
+
+    try {
+
+      const productId =
+        req.query.product_id;
+
+      if (!productId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar product_id."
+
+        });
+
+      }
+
+      const product =
+        await mercadoLibreRequest(
+          `/products/${encodeURIComponent(
+            productId
+          )}`
+        );
+
+      res.json({
+
+        success:
+          true,
+
+        product
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Product detail error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        product_id:
+          req.query.product_id ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================================
+// PRODUCT ITEMS / COMPETENCIA
+// =====================================================
+
+app.get(
+  "/product-items",
+  async (req, res) => {
+
+    try {
+
+      const productId =
+        req.query.product_id;
+
+      if (!productId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar product_id."
+
+        });
+
+      }
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 50,
+          100
+        );
+
+      const offset =
+        Math.max(
+          Number(req.query.offset) || 0,
+          0
+        );
+
+      const params =
+        new URLSearchParams({
+
+          limit:
+            String(limit),
+
+          offset:
+            String(offset)
+
+        });
+
+      const data =
+        await mercadoLibreRequest(
+          `/products/${encodeURIComponent(
+            productId
+          )}/items?${params.toString()}`
+        );
+
+      const results =
+        data.results ||
+        [];
+
+      res.json({
+
+        success:
+          true,
+
+        product_id:
+          productId,
+
+        total_results:
+          data.paging?.total ||
+          results.length,
+
+        results
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Product items error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        product_id:
+          req.query.product_id ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================================
+// ITEM DETAIL
 // =====================================================
 
 app.get(
@@ -1341,132 +1449,125 @@ app.get(
           success: false,
 
           error:
-            "Debes proporcionar item_id. Ejemplo: /item-detail?item_id=MLM123456789"
+            "Debes proporcionar item_id."
 
         });
+
       }
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "FINDR - DETALLE DE PUBLICACIÓN"
-      );
-
-      console.log(
-        "Item ID:",
-        itemId
-      );
-
-      console.log(
-        "======================================"
-      );
 
       const item =
         await mercadoLibreRequest(
-          `/items/${encodeURIComponent(itemId)}`
+          `/items/${encodeURIComponent(
+            itemId
+          )}`
         );
-
-      const result = {
-
-        item_id:
-          item.id,
-
-        site_id:
-          item.site_id || null,
-
-        title:
-          item.title || null,
-
-        seller_id:
-          item.seller_id || null,
-
-        category_id:
-          item.category_id || null,
-
-        price:
-          item.price || null,
-
-        base_price:
-          item.base_price || null,
-
-        original_price:
-          item.original_price || null,
-
-        currency_id:
-          item.currency_id || null,
-
-        initial_quantity:
-          item.initial_quantity || 0,
-
-        available_quantity:
-          item.available_quantity || 0,
-
-        sold_quantity:
-          item.sold_quantity || 0,
-
-        condition:
-          item.condition || null,
-
-        status:
-          item.status || null,
-
-        catalog_product_id:
-          item.catalog_product_id || null,
-
-        domain_id:
-          item.domain_id || null,
-
-        listing_type_id:
-          item.listing_type_id || null,
-
-        catalog_listing:
-          item.catalog_listing || false,
-
-        permalink:
-          item.permalink || null,
-
-        shipping:
-          item.shipping || null,
-
-        tags:
-          item.tags || [],
-
-        date_created:
-          item.date_created || null,
-
-        last_updated:
-          item.last_updated || null
-
-      };
-
-      console.log(
-        "Publicación encontrada:"
-      );
-
-      console.log(
-        JSON.stringify(
-          result,
-          null,
-          2
-        )
-      );
 
       res.json({
 
         success:
           true,
 
-        item:
-          result
+        item: {
+
+          item_id:
+            item.id,
+
+          site_id:
+            item.site_id ||
+            null,
+
+          title:
+            item.title ||
+            null,
+
+          seller_id:
+            item.seller_id ||
+            null,
+
+          category_id:
+            item.category_id ||
+            null,
+
+          price:
+            item.price ||
+            null,
+
+          base_price:
+            item.base_price ||
+            null,
+
+          original_price:
+            item.original_price ||
+            null,
+
+          currency_id:
+            item.currency_id ||
+            null,
+
+          initial_quantity:
+            item.initial_quantity ||
+            0,
+
+          available_quantity:
+            item.available_quantity ||
+            0,
+
+          sold_quantity:
+            item.sold_quantity ||
+            0,
+
+          condition:
+            item.condition ||
+            null,
+
+          status:
+            item.status ||
+            null,
+
+          catalog_product_id:
+            item.catalog_product_id ||
+            null,
+
+          domain_id:
+            item.domain_id ||
+            null,
+
+          listing_type_id:
+            item.listing_type_id ||
+            null,
+
+          catalog_listing:
+            item.catalog_listing ||
+            false,
+
+          permalink:
+            item.permalink ||
+            null,
+
+          shipping:
+            item.shipping ||
+            null,
+
+          tags:
+            item.tags ||
+            [],
+
+          date_created:
+            item.date_created ||
+            null,
+
+          last_updated:
+            item.last_updated ||
+            null
+
+        }
 
       });
 
     } catch (error) {
 
       console.error(
-        "Error obteniendo publicación:",
+        "Item detail error:",
         error
       );
 
@@ -1490,967 +1591,15 @@ app.get(
           error.message
 
       });
+
     }
+
   }
 );
+
+
 // =====================================================
-// DETALLE DE PRODUCTO DE CATÁLOGO
-// =====================================================
-
-app.get(
-  "/product-detail",
-  async (req, res) => {
-
-    try {
-
-      const productId =
-        req.query.product_id;
-
-      if (!productId) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          error:
-            "Debes proporcionar product_id. Ejemplo: /product-detail?product_id=MLM6055020"
-
-        });
-      }
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "DETALLE DE PRODUCTO DE CATÁLOGO"
-      );
-
-      console.log(
-        "Product ID:",
-        productId
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      const data =
-        await mercadoLibreRequest(
-          `/products/${encodeURIComponent(
-            productId
-          )}`
-        );
-
-      console.log(
-        "Producto obtenido correctamente."
-      );
-
-      console.log(
-        "Nombre:",
-        data.name
-      );
-
-      console.log(
-        "Status:",
-        data.status
-      );
-
-      console.log(
-        "Buy Box Winner:",
-        data.buy_box_winner
-          ? data.buy_box_winner.item_id
-          : "NINGUNO"
-      );
-
-      res.json({
-
-        success:
-          true,
-
-        product: {
-
-          id:
-            data.id,
-
-          status:
-            data.status,
-
-          name:
-            data.name,
-
-          family_name:
-            data.family_name ||
-            null,
-
-          domain_id:
-            data.domain_id ||
-            null,
-
-          sold_quantity:
-            data.sold_quantity ||
-            0,
-
-          buy_box_winner:
-            data.buy_box_winner ||
-            null,
-
-          buy_box_winner_price_range:
-            data.buy_box_winner_price_range ||
-            null,
-
-          parent_id:
-            data.parent_id ||
-            null,
-
-          children_ids:
-            data.children_ids ||
-            [],
-
-          settings:
-            data.settings ||
-            {},
-
-          permalink:
-            data.permalink ||
-            null
-
-        }
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Error obteniendo detalle del producto:",
-        error
-      );
-
-      res.status(
-        error.status || 500
-      ).json({
-
-        success: false,
-
-        status:
-          error.status ||
-          null,
-
-        product_id:
-          req.query.product_id ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      });
-    }
-  }
-);
-// =====================================================
-// FINDR - CATALOG HUNTER DISCOVERY
-// =====================================================
-
-app.get(
-  "/catalog-hunter-discovery",
-  async (req, res) => {
-
-    try {
-
-      const query =
-        req.query.q;
-
-      if (!query) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          error:
-            "Debes proporcionar q. Ejemplo: /catalog-hunter-discovery?q=Apple+iPhone"
-
-        });
-      }
-
-      // Número de productos que vamos a revisar
-      const limit =
-        Math.min(
-          Number(req.query.limit) || 50,
-          50
-        );
-
-      // Número de productos con competencia
-      // que queremos encontrar antes de detenernos.
-      const target =
-        Math.min(
-          Number(req.query.target) || 5,
-          10
-        );
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "FINDR - CATALOG HUNTER DISCOVERY"
-      );
-
-      console.log(
-        "Query:",
-        query
-      );
-
-      console.log(
-        "Productos máximos:",
-        limit
-      );
-
-      console.log(
-        "Candidatos objetivo:",
-        target
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      // =================================================
-      // 1. BUSCAR PRODUCTOS
-      // =================================================
-
-      const searchParams =
-        new URLSearchParams({
-
-          status:
-            "active",
-
-          site_id:
-            "MLM",
-
-          q:
-            query,
-
-          limit:
-            String(limit)
-
-        });
-
-      const searchData =
-        await mercadoLibreRequest(
-          `/products/search?${searchParams.toString()}`
-        );
-
-      const products =
-        searchData.results || [];
-
-      console.log(
-        "Productos encontrados:",
-        products.length
-      );
-
-      // =================================================
-      // 2. ANALIZAR CADA PRODUCTO
-      // =================================================
-
-      const candidates = [];
-
-      const analyzed = [];
-
-      for (
-        const product
-        of products
-      ) {
-
-        // -----------------------------------------------
-        // Detenernos cuando encontremos suficientes
-        // candidatos.
-        // -----------------------------------------------
-
-        if (
-          candidates.length >=
-          target
-        ) {
-
-          break;
-        }
-
-        try {
-
-          console.log(
-            "--------------------------------------"
-          );
-
-          console.log(
-            "Analizando producto:",
-            product.id
-          );
-
-          console.log(
-            "Nombre:",
-            product.name
-          );
-
-          // ---------------------------------------------
-          // Obtener detalle del producto
-          // ---------------------------------------------
-
-          const detail =
-            await mercadoLibreRequest(
-              `/products/${encodeURIComponent(
-                product.id
-              )}`
-            );
-
-          // ---------------------------------------------
-          // Solo analizamos productos activos
-          // ---------------------------------------------
-
-          if (
-            detail.status !==
-            "active"
-          ) {
-
-            console.log(
-              "Producto inactivo. Se descarta."
-            );
-
-            analyzed.push({
-
-              product_id:
-                detail.id,
-
-              name:
-                detail.name,
-
-              status:
-                detail.status,
-
-              has_competition:
-                false,
-
-              reason:
-                "inactive_product"
-
-            });
-
-            continue;
-          }
-
-          // ---------------------------------------------
-          // Buscar publicaciones competidoras
-          // ---------------------------------------------
-
-          let competition = null;
-
-          try {
-
-            competition =
-              await mercadoLibreRequest(
-                `/products/${encodeURIComponent(
-                  detail.id
-                )}/items`
-              );
-
-          } catch (competitionError) {
-
-            // -------------------------------------------
-            // Mercado Libre devuelve 404 cuando no hay
-            // publicaciones ganadoras/competidoras.
-            // -------------------------------------------
-
-            if (
-              competitionError.status ===
-              404
-            ) {
-
-              console.log(
-                "Sin publicaciones competidoras:",
-                detail.id
-              );
-
-              analyzed.push({
-
-                product_id:
-                  detail.id,
-
-                name:
-                  detail.name,
-
-                family_name:
-                  detail.family_name ||
-                  null,
-
-                domain_id:
-                  detail.domain_id ||
-                  null,
-
-                status:
-                  detail.status,
-
-                sold_quantity:
-                  detail.sold_quantity ||
-                  0,
-
-                has_competition:
-                  false,
-
-                reason:
-                  "no_competition"
-
-              });
-
-              continue;
-            }
-
-            throw competitionError;
-          }
-
-          // ---------------------------------------------
-          // Extraer publicaciones
-          // ---------------------------------------------
-
-          const items =
-            competition?.results ||
-            [];
-
-          console.log(
-            "Publicaciones encontradas:",
-            items.length
-          );
-
-          // ---------------------------------------------
-          // Si no hay resultados, descartar
-          // ---------------------------------------------
-
-          if (
-            items.length ===
-            0
-          ) {
-
-            analyzed.push({
-
-              product_id:
-                detail.id,
-
-              name:
-                detail.name,
-
-              family_name:
-                detail.family_name ||
-                null,
-
-              domain_id:
-                detail.domain_id ||
-                null,
-
-              status:
-                detail.status,
-
-              sold_quantity:
-                detail.sold_quantity ||
-                0,
-
-              has_competition:
-                false,
-
-              reason:
-                "empty_competition"
-
-            });
-
-            continue;
-          }
-
-          // ---------------------------------------------
-          // Normalizar publicaciones
-          // ---------------------------------------------
-
-          const competitors =
-            items.map(
-              (item) => ({
-
-                item_id:
-                  item.item_id ||
-                  null,
-
-                site_id:
-                  item.site_id ||
-                  null,
-
-                seller_id:
-                  item.seller_id ||
-                  null,
-
-                price:
-                  item.price ||
-                  null,
-
-                currency_id:
-                  item.currency_id ||
-                  null,
-
-                original_price:
-                  item.original_price ||
-                  null,
-
-                condition:
-                  item.condition ||
-                  null,
-
-                category_id:
-                  item.category_id ||
-                  null,
-
-                listing_type_id:
-                  item.listing_type_id ||
-                  null,
-
-                available_quantity:
-                  item.available_quantity ||
-                  null,
-
-                shipping:
-                  item.shipping ||
-                  null,
-
-                official_store_id:
-                  item.official_store_id ||
-                  null
-
-              })
-            );
-
-          // ---------------------------------------------
-          // Crear candidato
-          // ---------------------------------------------
-
-          const candidate = {
-
-            product_id:
-              detail.id,
-
-            name:
-              detail.name,
-
-            family_name:
-              detail.family_name ||
-              null,
-
-            domain_id:
-              detail.domain_id ||
-              null,
-
-            status:
-              detail.status,
-
-            product_sold_quantity:
-              detail.sold_quantity ||
-              0,
-
-            buy_box_winner:
-              detail.buy_box_winner ||
-              null,
-
-            competitors_count:
-              competitors.length,
-
-            competitors
-
-          };
-
-          candidates.push(
-            candidate
-          );
-
-          analyzed.push({
-
-            product_id:
-              detail.id,
-
-            name:
-              detail.name,
-
-            domain_id:
-              detail.domain_id ||
-              null,
-
-            status:
-              detail.status,
-
-            competitors_count:
-              competitors.length,
-
-            has_competition:
-              true
-
-          });
-
-          console.log(
-            "🔥 CANDIDATO ENCONTRADO:",
-            detail.id
-          );
-
-        } catch (error) {
-
-          console.error(
-            "Error analizando producto:",
-            product.id,
-            error.message
-          );
-
-          analyzed.push({
-
-            product_id:
-              product.id,
-
-            name:
-              product.name,
-
-            has_competition:
-              false,
-
-            reason:
-              "analysis_error",
-
-            error:
-              error.message
-
-          });
-        }
-      }
-
-      // =================================================
-      // 3. RESULTADO
-      // =================================================
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "CATALOG HUNTER TERMINADO"
-      );
-
-      console.log(
-        "Productos revisados:",
-        analyzed.length
-      );
-
-      console.log(
-        "Candidatos encontrados:",
-        candidates.length
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      res.json({
-
-        success:
-          true,
-
-        query,
-
-        search_total:
-          searchData.paging?.total ||
-          products.length,
-
-        products_returned:
-          products.length,
-
-        products_analyzed:
-          analyzed.length,
-
-        candidates_found:
-          candidates.length,
-
-        candidates,
-
-        analyzed
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "❌ Error en Catalog Hunter:",
-        error
-      );
-
-      res.status(
-        error.status || 500
-      ).json({
-
-        success:
-          false,
-
-        status:
-          error.status ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      });
-    }
-  }
-);
-      // ------------------------------------------------
-      // 1. BUSCAR PRODUCTOS
-      // ------------------------------------------------
-
-      const params =
-        new URLSearchParams({
-
-          status:
-            "active",
-
-          site_id:
-            "MLM",
-
-          q:
-            query,
-
-          limit:
-            String(limit)
-
-        });
-
-      const searchData =
-        await mercadoLibreRequest(
-          `/products/search?${params.toString()}`
-        );
-
-      const products =
-        searchData.results || [];
-
-      console.log(
-        "Productos encontrados:",
-        products.length
-      );
-
-      // ------------------------------------------------
-      // 2. ANALIZAR PRODUCTOS
-      // ------------------------------------------------
-
-      const candidates = [];
-
-      const analyzed = [];
-
-      for (
-        const product
-        of products
-      ) {
-
-        if (
-          candidates.length >=
-          targetCandidates
-        ) {
-          break;
-        }
-
-        try {
-
-          console.log(
-            "Analizando:",
-            product.id,
-            product.name
-          );
-
-          const detail =
-            await mercadoLibreRequest(
-              `/products/${encodeURIComponent(
-                product.id
-              )}`
-            );
-
-          const winner =
-            detail.buy_box_winner ||
-            null;
-
-          const result = {
-
-            product_id:
-              detail.id,
-
-            name:
-              detail.name,
-
-            family_name:
-              detail.family_name ||
-              null,
-
-            domain_id:
-              detail.domain_id ||
-              null,
-
-            status:
-              detail.status,
-
-            sold_quantity:
-              detail.sold_quantity ||
-              0,
-
-            buy_box_winner:
-              winner
-                ? {
-
-                    item_id:
-                      winner.item_id,
-
-                    seller_id:
-                      winner.seller_id,
-
-                    price:
-                      winner.price,
-
-                    currency_id:
-                      winner.currency_id,
-
-                    sold_quantity:
-                      winner.sold_quantity,
-
-                    available_quantity:
-                      winner.available_quantity
-
-                  }
-                : null,
-
-            has_competition:
-              Boolean(winner)
-
-          };
-
-          analyzed.push(
-            result
-          );
-
-          // ------------------------------------------
-          // 3. SOLO CANDIDATOS CON COMPETENCIA
-          // ------------------------------------------
-
-          if (winner) {
-
-            console.log(
-              "🔥 COMPETENCIA ENCONTRADA:",
-              detail.id
-            );
-
-            candidates.push(
-              result
-            );
-
-          } else {
-
-            console.log(
-              "Sin Buy Box:",
-              detail.id
-            );
-          }
-
-        } catch (error) {
-
-          console.error(
-            "Error analizando producto:",
-            product.id,
-            error.message
-          );
-
-          analyzed.push({
-
-            product_id:
-              product.id,
-
-            name:
-              product.name,
-
-            analysis_error:
-              error.message
-
-          });
-        }
-      }
-
-      // ------------------------------------------------
-      // 4. RESULTADO
-      // ------------------------------------------------
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "ANÁLISIS TERMINADO"
-      );
-
-      console.log(
-        "Productos revisados:",
-        analyzed.length
-      );
-
-      console.log(
-        "Candidatos con competencia:",
-        candidates.length
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      res.json({
-
-        success:
-          true,
-
-        query,
-
-        search_total:
-          searchData.paging?.total ||
-          products.length,
-
-        products_analyzed:
-          analyzed.length,
-
-        candidates_found:
-          candidates.length,
-
-        candidates,
-
-        analyzed
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "❌ Error en Catalog Hunter:",
-        error
-      );
-
-      res.status(
-        error.status || 500
-      ).json({
-
-        success:
-          false,
-
-        status:
-          error.status ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      });
-    }
-  }
-);
-// =====================================================
-// FINDR - DISCOVERY ENGINE V2
+// DISCOVERY ENGINE V2
 // =====================================================
 
 app.get(
@@ -2462,16 +1611,6 @@ app.get(
       const query =
         req.query.q;
 
-      const domainId =
-        req.query.domain_id ||
-        "MLM-CELLPHONES";
-
-      const limit =
-        Math.min(
-          Number(req.query.limit) || 20,
-          50
-        );
-
       if (!query) {
 
         return res.status(400).json({
@@ -2479,17 +1618,28 @@ app.get(
           success: false,
 
           error:
-            "Debes proporcionar q. Ejemplo: /catalog-discovery-v2?q=iPhone+13"
+            "Debes proporcionar q."
 
         });
+
       }
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 20,
+          50
+        );
+
+      const domainId =
+        req.query.domain_id ||
+        null;
 
       console.log(
         "======================================"
       );
 
       console.log(
-        "FINDR - DISCOVERY ENGINE V2"
+        "FINDR DISCOVERY V2"
       );
 
       console.log(
@@ -2499,7 +1649,8 @@ app.get(
 
       console.log(
         "Domain:",
-        domainId
+        domainId ||
+        "sin filtro"
       );
 
       console.log(
@@ -2511,9 +1662,9 @@ app.get(
         "======================================"
       );
 
-      // =================================================
-      // 1. BÚSQUEDA DE CATÁLOGO
-      // =================================================
+      // ------------------------------------------------
+      // CONSTRUCCIÓN DE BÚSQUEDA
+      // ------------------------------------------------
 
       const params =
         new URLSearchParams({
@@ -2527,13 +1678,23 @@ app.get(
           q:
             query,
 
-          domain_id:
-            domainId,
-
           limit:
             String(limit)
 
         });
+
+      // domain_id es OPCIONAL.
+      // Solo lo agregamos si el usuario
+      // realmente lo proporcionó.
+
+      if (domainId) {
+
+        params.set(
+          "domain_id",
+          domainId
+        );
+
+      }
 
       const data =
         await mercadoLibreRequest(
@@ -2541,13 +1702,14 @@ app.get(
         );
 
       const products =
-        data.results || [];
+        data.results ||
+        [];
 
-      // =================================================
-      // 2. NORMALIZAR RESULTADOS
-      // =================================================
+      // ------------------------------------------------
+      // NORMALIZACIÓN
+      // ------------------------------------------------
 
-      const results =
+      const normalized =
         products.map(
           (product) => {
 
@@ -2569,7 +1731,9 @@ app.get(
                 ] =
                   attribute.value_name ||
                   null;
+
               }
+
             }
 
             return {
@@ -2628,9 +1792,9 @@ app.get(
           }
         );
 
-      // =================================================
-      // 3. FILTRO DE RELEVANCIA
-      // =================================================
+      // ------------------------------------------------
+      // RELEVANCIA LOCAL
+      // ------------------------------------------------
 
       const queryWords =
         query
@@ -2638,19 +1802,34 @@ app.get(
           .split(/\s+/)
           .filter(
             word =>
-              word.length > 2
+              word.length >= 2
           );
 
       const ranked =
-        results
+        normalized
           .map(
-            product => {
+            (product) => {
 
               const text =
-                `${product.name || ""} ${product.brand || ""} ${product.model || ""}`
+                [
+
+                  product.name,
+
+                  product.brand,
+
+                  product.model,
+
+                  product.memory,
+
+                  product.color
+
+                ]
+                  .filter(Boolean)
+                  .join(" ")
                   .toLowerCase();
 
-              let score = 0;
+              let score =
+                0;
 
               for (
                 const word
@@ -2662,21 +1841,28 @@ app.get(
                 ) {
 
                   score += 1;
+
                 }
+
               }
 
               // Coincidencia de marca
+
               if (
+                product.brand &&
                 query
                   .toLowerCase()
-                  .includes("apple") &&
-                product.brand === "Apple"
+                  .includes(
+                    product.brand.toLowerCase()
+                  )
               ) {
 
                 score += 2;
+
               }
 
               // Coincidencia de modelo
+
               if (
                 product.model &&
                 query
@@ -2687,6 +1873,7 @@ app.get(
               ) {
 
                 score += 2;
+
               }
 
               return {
@@ -2706,39 +1893,9 @@ app.get(
               a.relevance_score
           );
 
-      console.log(
-        "Productos devueltos:",
-        results.length
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "TOP PRODUCTOS"
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      ranked
-        .slice(0, 10)
-        .forEach(
-          (product, index) => {
-
-            console.log(
-              `${index + 1}.`,
-              product.product_id,
-              "|",
-              product.name,
-              "| Score:",
-              product.relevance_score
-            );
-
-          }
-        );
+      // ------------------------------------------------
+      // RESPUESTA
+      // ------------------------------------------------
 
       res.json({
 
@@ -2755,7 +1912,7 @@ app.get(
           products.length,
 
         products_found:
-          results.length,
+          products.length,
 
         results:
           ranked
@@ -2765,483 +1922,19 @@ app.get(
     } catch (error) {
 
       console.error(
-        "❌ Discovery V2 error:",
+        "Discovery V2 error:",
         error
       );
 
       res.status(
         error.status || 500
       ).json({
-
-        success: false,
-
-        status:
-          error.status ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      });
-
-    }
-
-  }
-);
-// =====================================================
-// PUBLICACIONES DE UN PRODUCTO DE CATÁLOGO
-// =====================================================
-
-app.get(
-  "/product-items",
-  async (req, res) => {
-
-    try {
-
-      const productId =
-        req.query.product_id;
-
-      if (!productId) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          error:
-            "Debes proporcionar product_id. Ejemplo: /product-items?product_id=MLM63095707"
-
-        });
-      }
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "HUNTER - BUSCANDO PUBLICACIONES"
-      );
-
-      console.log(
-        "Product ID:",
-        productId
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      const limit =
-        Math.min(
-          Number(req.query.limit) || 50,
-          100
-        );
-
-      const offset =
-        Number(req.query.offset) || 0;
-
-      const params =
-        new URLSearchParams({
-
-          limit:
-            String(limit),
-
-          offset:
-            String(offset)
-
-        });
-
-      const data =
-        await mercadoLibreRequest(
-          `/products/${encodeURIComponent(
-            productId
-          )}/items?${params.toString()}`
-        );
-
-      const items =
-        (data.results || []).map(
-          (item) => ({
-
-            item_id:
-              item.item_id,
-
-            site_id:
-              item.site_id,
-
-            seller_id:
-              item.seller_id,
-
-            price:
-              item.price,
-
-            currency_id:
-              item.currency_id,
-
-            condition:
-              item.condition,
-
-            category_id:
-              item.category_id,
-
-            listing_type_id:
-              item.listing_type_id,
-
-            official_store_id:
-              item.official_store_id,
-
-            original_price:
-              item.original_price,
-
-            warranty:
-              item.warranty,
-
-            shipping:
-              item.shipping,
-
-            tags:
-              item.tags,
-
-            deal_ids:
-              item.deal_ids,
-
-            tier:
-              item.tier,
-
-            inventory_id:
-              item.inventory_id
-
-          })
-        );
-
-      console.log(
-        "Publicaciones encontradas:",
-        items.length
-      );
-
-      res.json({
-
-        success:
-          true,
-
-        product_id:
-          productId,
-
-        paging:
-          data.paging ||
-          null,
-
-        total_results:
-          data.paging?.total ||
-          items.length,
-
-        results:
-          items
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Error obteniendo publicaciones del producto:",
-        error
-      );
-
-      res.status(
-        error.status || 500
-      ).json({
-
-        success: false,
-
-        status:
-          error.status ||
-          null,
-
-        product_id:
-          req.query.product_id ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      });
-    }
-  }
-);
-
-// =====================================================
-// BÚSQUEDA GENERAL - PRUEBA SIN TOKEN
-// =====================================================
-
-app.get(
-  "/search-general-test",
-  async (req, res) => {
-
-    try {
-
-      const query =
-        req.query.q ||
-        "iphone";
-
-      const limit =
-        Math.min(
-          Number(req.query.limit) || 3,
-          10
-        );
-
-      const params =
-        new URLSearchParams({
-
-          q:
-            query,
-
-          limit:
-            String(limit)
-
-        });
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "PRUEBA BÚSQUEDA GENERAL SIN TOKEN"
-      );
-
-      console.log(
-        "Query:",
-        query
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      const response =
-        await fetch(
-          `https://api.mercadolibre.com/sites/MLM/search?${params.toString()}`
-        );
-
-      const data =
-        await response.json();
-
-      console.log(
-        "Status Mercado Libre:",
-        response.status
-      );
-
-      console.log(
-        "Respuesta:",
-        JSON.stringify(
-          data,
-          null,
-          2
-        )
-      );
-
-      res.status(
-        response.status
-      ).json({
-
-        success:
-          response.ok,
-
-        status:
-          response.status,
-
-        query,
-
-        total:
-          data.paging?.total ||
-          null,
-
-        results:
-          data.results ||
-          [],
-
-        error:
-          response.ok
-            ? null
-            : data
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Error búsqueda general:",
-        error
-      );
-
-      res.status(500).json({
-
-        success: false,
-
-        error:
-          error.message
-
-      });
-    }
-  }
-);
-
-// =====================================================
-// TEST SUPABASE
-// =====================================================
-
-app.get(
-  "/test-supabase",
-  async (req, res) => {
-
-    try {
-
-      const accounts =
-        await supabaseRequest(
-          "mercadolibre_accounts?select=user_id,nickname,expires_at"
-        );
-
-      res.json({
-
-        success:
-          true,
-
-        accounts
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Supabase test error:",
-        error
-      );
-
-      res.status(500).json({
 
         success:
           false,
 
-        error:
-          error.message
-
-      });
-    }
-  }
-);
-// =====================================================
-// PUBLICACIONES DE UN VENDEDOR
-// =====================================================
-
-app.get(
-  "/seller-items",
-  async (req, res) => {
-
-    try {
-
-      const sellerId =
-        req.query.seller_id;
-
-      if (!sellerId) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          error:
-            "Debes proporcionar seller_id. Ejemplo: /seller-items?seller_id=356593713"
-
-        });
-      }
-
-      const limit =
-        Math.min(
-          Number(req.query.limit) || 10,
-          50
-        );
-
-      const offset =
-        Number(req.query.offset) || 0;
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "FINDR - PUBLICACIONES DE VENDEDOR"
-      );
-
-      console.log(
-        "Seller ID:",
-        sellerId
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      const params =
-        new URLSearchParams({
-
-          seller_id:
-            sellerId,
-
-          limit:
-            String(limit),
-
-          offset:
-            String(offset)
-
-        });
-
-      const data =
-        await mercadoLibreRequest(
-          `/sites/MLM/search?${params.toString()}`
-        );
-
-      const items =
-        data.results || [];
-
-      console.log(
-        "Publicaciones encontradas:",
-        items.length
-      );
-
-      res.json({
-
-        success:
-          true,
-
-        seller_id:
-          sellerId,
-
-        total_results:
-          data.paging?.total ||
-          items.length,
-
-        results:
-          items
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Error obteniendo publicaciones del vendedor:",
-        error
-      );
-
-      res.status(
-        error.status || 500
-      ).json({
-
-        success: false,
-
         status:
           error.status ||
-          null,
-
-        seller_id:
-          req.query.seller_id ||
           null,
 
         error:
@@ -3249,9 +1942,13 @@ app.get(
           error.message
 
       });
+
     }
+
   }
 );
+
+
 // =====================================================
 // SERVIDOR
 // =====================================================
@@ -3261,7 +1958,7 @@ app.listen(
   () => {
 
     console.log(
-      `Findr Bot escuchando en el puerto ${PORT}`
+      `FINDR Bot escuchando en puerto ${PORT}`
     );
 
   }
