@@ -2508,7 +2508,183 @@ app.get(
 
   }
 );
+// =====================================================
+// FINDR - MARKETPLACE SEARCH DIAGNOSTIC
+// =====================================================
 
+app.get(
+  "/marketplace-search-test",
+  async (req, res) => {
+
+    try {
+
+      const query =
+        req.query.q ||
+        "iPhone 13";
+
+      const condition =
+        req.query.condition ||
+        "used";
+
+      const sort =
+        req.query.sort ||
+        "price_asc";
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 20,
+          50
+        );
+
+      const params =
+        new URLSearchParams({
+
+          q:
+            query,
+
+          condition:
+            condition,
+
+          sort:
+            sort,
+
+          limit:
+            String(limit)
+
+        });
+
+      const endpoint =
+        `/sites/MLM/search?${params.toString()}`;
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR - MARKETPLACE SEARCH TEST"
+      );
+
+      console.log(
+        "Endpoint:",
+        endpoint
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      const account =
+        await getValidMercadoLibreAccount();
+
+      const response =
+        await fetch(
+          `https://api.mercadolibre.com${endpoint}`,
+          {
+
+            headers: {
+
+              Authorization:
+                `Bearer ${account.access_token}`,
+
+              accept:
+                "application/json"
+
+            }
+
+          }
+        );
+
+      const data =
+        await response.json();
+
+      console.log(
+        "STATUS:",
+        response.status
+      );
+
+      console.log(
+        "RESPONSE:",
+        JSON.stringify(
+          data,
+          null,
+          2
+        )
+      );
+
+      res.status(
+        response.ok
+          ? 200
+          : response.status
+      ).json({
+
+        success:
+          response.ok,
+
+        status:
+          response.status,
+
+        endpoint,
+
+        query,
+
+        condition,
+
+        sort,
+
+        result_count:
+          data.results?.length ||
+          0,
+
+        total:
+          data.paging?.total ||
+          0,
+
+        available_filters:
+          data.available_filters ||
+          [],
+
+        available_sorts:
+          data.available_sorts ||
+          [],
+
+        results:
+          response.ok
+            ? data.results || []
+            : [],
+
+        error:
+          response.ok
+            ? null
+            : data
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Marketplace search diagnostic error:",
+        error
+      );
+
+      res.status(500).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          500,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
 // =====================================================
 // SERVIDOR
 // =====================================================
