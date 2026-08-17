@@ -2302,7 +2302,130 @@ app.get(
     }
   }
 );
+// =====================================================
+// PUBLICACIONES DE UN VENDEDOR
+// =====================================================
 
+app.get(
+  "/seller-items",
+  async (req, res) => {
+
+    try {
+
+      const sellerId =
+        req.query.seller_id;
+
+      if (!sellerId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar seller_id. Ejemplo: /seller-items?seller_id=356593713"
+
+        });
+      }
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 10,
+          50
+        );
+
+      const offset =
+        Number(req.query.offset) || 0;
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR - PUBLICACIONES DE VENDEDOR"
+      );
+
+      console.log(
+        "Seller ID:",
+        sellerId
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      const params =
+        new URLSearchParams({
+
+          seller_id:
+            sellerId,
+
+          limit:
+            String(limit),
+
+          offset:
+            String(offset)
+
+        });
+
+      const data =
+        await mercadoLibreRequest(
+          `/sites/MLM/search?${params.toString()}`
+        );
+
+      const items =
+        data.results || [];
+
+      console.log(
+        "Publicaciones encontradas:",
+        items.length
+      );
+
+      res.json({
+
+        success:
+          true,
+
+        seller_id:
+          sellerId,
+
+        total_results:
+          data.paging?.total ||
+          items.length,
+
+        results:
+          items
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Error obteniendo publicaciones del vendedor:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success: false,
+
+        status:
+          error.status ||
+          null,
+
+        seller_id:
+          req.query.seller_id ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+    }
+  }
+);
 // =====================================================
 // SERVIDOR
 // =====================================================
