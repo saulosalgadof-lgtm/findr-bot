@@ -2686,6 +2686,161 @@ app.get(
   }
 );
 // =====================================================
+// FINDR - SELLER ITEMS DISCOVERY
+// =====================================================
+
+app.get(
+  "/seller-items",
+  async (req, res) => {
+
+    try {
+
+      const sellerId =
+        req.query.seller_id;
+
+      if (!sellerId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar seller_id."
+
+        });
+
+      }
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 20,
+          50
+        );
+
+      const offset =
+        Math.max(
+          Number(req.query.offset) || 0,
+          0
+        );
+
+      const sort =
+        req.query.sort ||
+        "price_asc";
+
+      const params =
+        new URLSearchParams({
+
+          seller_id:
+            sellerId,
+
+          limit:
+            String(limit),
+
+          offset:
+            String(offset),
+
+          sort:
+            sort
+
+        });
+
+      const endpoint =
+        `/sites/MLM/search?${params.toString()}`;
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR - SELLER ITEMS"
+      );
+
+      console.log(
+        "Seller:",
+        sellerId
+      );
+
+      console.log(
+        "Endpoint:",
+        endpoint
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      const data =
+        await mercadoLibreRequest(
+          endpoint
+        );
+
+      res.json({
+
+        success:
+          true,
+
+        seller_id:
+          sellerId,
+
+        total:
+          data.paging?.total ||
+          0,
+
+        limit:
+          data.paging?.limit ||
+          limit,
+
+        offset:
+          data.paging?.offset ||
+          offset,
+
+        available_filters:
+          data.available_filters ||
+          [],
+
+        available_sorts:
+          data.available_sorts ||
+          [],
+
+        results:
+          data.results ||
+          []
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Seller items error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        seller_id:
+          req.query.seller_id ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
+// =====================================================
 // SERVIDOR
 // =====================================================
 
