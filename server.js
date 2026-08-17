@@ -1947,7 +1947,567 @@ app.get(
 
   }
 );
+// =====================================================
+// FINDR - COMPETITION DISCOVERY V3
+// =====================================================
 
+app.get(
+  "/catalog-find-competition",
+  async (req, res) => {
+
+    try {
+
+      const query =
+        req.query.q;
+
+      if (!query) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar q. Ejemplo: /catalog-find-competition?q=Samsung+Galaxy"
+
+        });
+
+      }
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 20,
+          50
+        );
+
+      const target =
+        Math.min(
+          Number(req.query.target) || 3,
+          10
+        );
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR - COMPETITION DISCOVERY V3"
+      );
+
+      console.log(
+        "Query:",
+        query
+      );
+
+      console.log(
+        "Products to inspect:",
+        limit
+      );
+
+      console.log(
+        "Target candidates:",
+        target
+      );
+
+      console.log(
+        "======================================"
+      );
+
+
+      // =================================================
+      // 1. BUSCAR PRODUCTOS
+      // =================================================
+
+      const searchParams =
+        new URLSearchParams({
+
+          status:
+            "active",
+
+          site_id:
+            "MLM",
+
+          q:
+            query,
+
+          limit:
+            String(limit)
+
+        });
+
+
+      const searchData =
+        await mercadoLibreRequest(
+          `/products/search?${searchParams.toString()}`
+        );
+
+
+      const products =
+        searchData.results ||
+        [];
+
+
+      console.log(
+        "Productos encontrados:",
+        products.length
+      );
+
+
+      // =================================================
+      // 2. ANALIZAR PRODUCTOS
+      // =================================================
+
+      const candidates = [];
+
+      const analyzed = [];
+
+
+      for (
+        const product
+        of products
+      ) {
+
+        if (
+          candidates.length >=
+          target
+        ) {
+
+          break;
+
+        }
+
+
+        try {
+
+          console.log(
+            "--------------------------------------"
+          );
+
+          console.log(
+            "Analizando:",
+            product.id
+          );
+
+          console.log(
+            "Nombre:",
+            product.name
+          );
+
+
+          // =============================================
+          // 3. DETALLE DEL PRODUCTO
+          // =============================================
+
+          const detail =
+            await mercadoLibreRequest(
+              `/products/${encodeURIComponent(
+                product.id
+              )}`
+            );
+
+
+          // =============================================
+          // 4. PRODUCTO INACTIVO
+          // =============================================
+
+          if (
+            detail.status !==
+            "active"
+          ) {
+
+            analyzed.push({
+
+              product_id:
+                detail.id,
+
+              name:
+                detail.name,
+
+              status:
+                detail.status,
+
+              has_buy_box:
+                false,
+
+              reason:
+                "inactive"
+
+            });
+
+            continue;
+
+          }
+
+
+          // =============================================
+          // 5. ¿TIENE BUY BOX?
+          // =============================================
+
+          const winner =
+            detail.buy_box_winner ||
+            null;
+
+
+          if (!winner) {
+
+            console.log(
+              "Sin Buy Box:",
+              detail.id
+            );
+
+            analyzed.push({
+
+              product_id:
+                detail.id,
+
+              name:
+                detail.name,
+
+              status:
+                detail.status,
+
+              has_buy_box:
+                false,
+
+              reason:
+                "no_buy_box"
+
+            });
+
+            continue;
+
+          }
+
+
+          console.log(
+            "🔥 BUY BOX ENCONTRADO"
+          );
+
+          console.log(
+            "Item:",
+            winner.item_id
+          );
+
+          console.log(
+            "Seller:",
+            winner.seller_id
+          );
+
+          console.log(
+            "Precio:",
+            winner.price
+          );
+
+
+          // =============================================
+          // 6. INTENTAR OBTENER TODAS LAS PUBLICACIONES
+          // =============================================
+
+          let competition =
+            null;
+
+
+          try {
+
+            competition =
+              await mercadoLibreRequest(
+                `/products/${encodeURIComponent(
+                  detail.id
+                )}/items?limit=100`
+              );
+
+          } catch (competitionError) {
+
+            console.log(
+              "No fue posible obtener listado completo:",
+              competitionError.status,
+              competitionError.message
+            );
+
+          }
+
+
+          // =============================================
+          // 7. NORMALIZAR COMPETIDORES
+          // =============================================
+
+          const rawItems =
+            competition?.results ||
+            [];
+
+
+          const competitors =
+            rawItems.map(
+              (item) => ({
+
+                item_id:
+                  item.item_id ||
+                  null,
+
+                seller_id:
+                  item.seller_id ||
+                  null,
+
+                price:
+                  item.price ||
+                  null,
+
+                currency_id:
+                  item.currency_id ||
+                  null,
+
+                condition:
+                  item.condition ||
+                  null,
+
+                available_quantity:
+                  item.available_quantity ||
+                  null,
+
+                original_price:
+                  item.original_price ||
+                  null,
+
+                listing_type_id:
+                  item.listing_type_id ||
+                  null,
+
+                official_store_id:
+                  item.official_store_id ||
+                  null,
+
+                shipping:
+                  item.shipping ||
+                  null
+
+              })
+            );
+
+
+          // =============================================
+          // 8. GARANTIZAR QUE EL WINNER APAREZCA
+          // =============================================
+
+          const winnerAlreadyIncluded =
+            competitors.some(
+              item =>
+                item.item_id ===
+                winner.item_id
+            );
+
+
+          if (
+            !winnerAlreadyIncluded
+          ) {
+
+            competitors.unshift({
+
+              item_id:
+                winner.item_id ||
+                null,
+
+              seller_id:
+                winner.seller_id ||
+                null,
+
+              price:
+                winner.price ||
+                null,
+
+              currency_id:
+                winner.currency_id ||
+                null,
+
+              condition:
+                winner.condition ||
+                null,
+
+              available_quantity:
+                winner.available_quantity ||
+                null,
+
+              original_price:
+                winner.original_price ||
+                null,
+
+              listing_type_id:
+                winner.listing_type_id ||
+                null,
+
+              official_store_id:
+                winner.official_store_id ||
+                null,
+
+              shipping:
+                winner.shipping ||
+                null
+
+            });
+
+          }
+
+
+          // =============================================
+          // 9. CREAR CANDIDATO
+          // =============================================
+
+          const candidate = {
+
+            product_id:
+              detail.id,
+
+            name:
+              detail.name,
+
+            family_name:
+              detail.family_name ||
+              null,
+
+            domain_id:
+              detail.domain_id ||
+              null,
+
+            status:
+              detail.status,
+
+            sold_quantity:
+              detail.sold_quantity ||
+              0,
+
+            buy_box_winner:
+              winner,
+
+            competitors_count:
+              competitors.length,
+
+            competitors
+
+          };
+
+
+          candidates.push(
+            candidate
+          );
+
+
+          analyzed.push({
+
+            product_id:
+              detail.id,
+
+            name:
+              detail.name,
+
+            status:
+              detail.status,
+
+            has_buy_box:
+              true,
+
+            competitors_count:
+              competitors.length
+
+          });
+
+
+          console.log(
+            "🔥 CANDIDATO:",
+            detail.id
+          );
+
+
+        } catch (error) {
+
+          console.error(
+            "Error analizando:",
+            product.id,
+            error.message
+          );
+
+
+          analyzed.push({
+
+            product_id:
+              product.id,
+
+            name:
+              product.name,
+
+            has_buy_box:
+              false,
+
+            reason:
+              "analysis_error",
+
+            error:
+              error.message
+
+          });
+
+        }
+
+      }
+
+
+      // =================================================
+      // 10. RESULTADO
+      // =================================================
+
+      res.json({
+
+        success:
+          true,
+
+        query,
+
+        search_total:
+          searchData.paging?.total ||
+          products.length,
+
+        products_found:
+          products.length,
+
+        products_analyzed:
+          analyzed.length,
+
+        candidates_found:
+          candidates.length,
+
+        candidates,
+
+        analyzed
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "❌ Competition Discovery V3 error:",
+        error
+      );
+
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
 
 // =====================================================
 // SERVIDOR
