@@ -2903,6 +2903,413 @@ app.get(
 
   }
 );
+// =====================================================
+// FINDR - TREND → PRODUCT ENGINE V1
+// =====================================================
+
+app.get(
+  "/trend-to-product",
+  async (req, res) => {
+
+    try {
+
+      const query =
+        req.query.q;
+
+      if (!query) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar q. Ejemplo: /trend-to-product?q=iphone+11+usado"
+
+        });
+
+      }
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 10,
+          50
+        );
+
+      const offset =
+        Math.max(
+          Number(req.query.offset) || 0,
+          0
+        );
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR - TREND → PRODUCT V1"
+      );
+
+      console.log(
+        "Query:",
+        query
+      );
+
+      console.log(
+        "Limit:",
+        limit
+      );
+
+      console.log(
+        "======================================"
+      );
+
+
+      // =================================================
+      // 1. BUSCAR PRODUCTOS DE CATÁLOGO
+      // =================================================
+
+      const params =
+        new URLSearchParams({
+
+          status:
+            "active",
+
+          site_id:
+            "MLM",
+
+          q:
+            query,
+
+          limit:
+            String(limit),
+
+          offset:
+            String(offset)
+
+        });
+
+
+      const data =
+        await mercadoLibreRequest(
+          `/products/search?${params.toString()}`
+        );
+
+
+      const products =
+        data.results ||
+        [];
+
+
+      // =================================================
+      // 2. NORMALIZAR PRODUCTOS
+      // =================================================
+
+      const normalized =
+        products.map(
+          (product) => {
+
+            const attributes = {};
+
+            if (
+              Array.isArray(
+                product.attributes
+              )
+            ) {
+
+              for (
+                const attribute
+                of product.attributes
+              ) {
+
+                attributes[
+                  attribute.id
+                ] =
+                  attribute.value_name ||
+                  null;
+
+              }
+
+            }
+
+
+            return {
+
+              product_id:
+                product.id,
+
+              name:
+                product.name ||
+                null,
+
+              domain_id:
+                product.domain_id ||
+                null,
+
+              status:
+                product.status ||
+                null,
+
+              parent_id:
+                product.parent_id ||
+                null,
+
+              children_ids:
+                product.children_ids ||
+                [],
+
+              listing_strategy:
+                product.settings?.listing_strategy ||
+                null,
+
+              brand:
+                attributes.BRAND ||
+                null,
+
+              line:
+                attributes.LINE ||
+                null,
+
+              model:
+                attributes.MODEL ||
+                null,
+
+              memory:
+                attributes.INTERNAL_MEMORY ||
+                null,
+
+              color:
+                attributes.COLOR ||
+                null,
+
+              condition:
+                attributes.CONDITION ||
+                null,
+
+              gtin:
+                attributes.GTIN ||
+                null,
+
+              attributes
+
+            };
+
+          }
+        );
+
+
+      // =================================================
+      // 3. RELEVANCIA
+      // =================================================
+
+      const queryWords =
+        query
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(
+            word =>
+              word.length >= 2
+          );
+
+
+      const ranked =
+        normalized
+          .map(
+            (product) => {
+
+              const text =
+                [
+
+                  product.name,
+
+                  product.brand,
+
+                  product.line,
+
+                  product.model,
+
+                  product.memory,
+
+                  product.color
+
+                ]
+                  .filter(Boolean)
+                  .join(" ")
+                  .toLowerCase();
+
+
+              let score =
+                0;
+
+
+              // -----------------------------------------
+              // Coincidencia por palabra
+              // -----------------------------------------
+
+              for (
+                const word
+                of queryWords
+              ) {
+
+                if (
+                  text.includes(word)
+                ) {
+
+                  score += 1;
+
+                }
+
+              }
+
+
+              // -----------------------------------------
+              // Coincidencia exacta de modelo
+              // -----------------------------------------
+
+              if (
+                product.model &&
+                query
+                  .toLowerCase()
+                  .includes(
+                    product.model.toLowerCase()
+                  )
+              ) {
+
+                score += 2;
+
+              }
+
+
+              // -----------------------------------------
+              // Coincidencia de marca
+              // -----------------------------------------
+
+              if (
+                product.brand &&
+                query
+                  .toLowerCase()
+                  .includes(
+                    product.brand.toLowerCase()
+                  )
+              ) {
+
+                score += 2;
+
+              }
+
+
+              // -----------------------------------------
+              // Condición buscada
+              // -----------------------------------------
+
+              const queryLower =
+                query.toLowerCase();
+
+
+              if (
+                queryLower.includes("usado") ||
+                queryLower.includes("usada")
+              ) {
+
+                if (
+                  product.condition ===
+                  "used"
+                ) {
+
+                  score += 2;
+
+                }
+
+              }
+
+
+              if (
+                queryLower.includes("reacondicionado") ||
+                queryLower.includes("reacondicionada")
+              ) {
+
+                if (
+                  product.condition ===
+                  "refurbished"
+                ) {
+
+                  score += 2;
+
+                }
+
+              }
+
+
+              return {
+
+                ...product,
+
+                relevance_score:
+                  score
+
+              };
+
+            }
+          )
+          .sort(
+            (a, b) =>
+              b.relevance_score -
+              a.relevance_score
+          );
+
+
+      // =================================================
+      // 4. RESPUESTA
+      // =================================================
+
+      res.json({
+
+        success:
+          true,
+
+        query,
+
+        search_total:
+          data.paging?.total ||
+          products.length,
+
+        products_found:
+          products.length,
+
+        results:
+          ranked
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "Trend → Product error:",
+        error
+      );
+
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
 
 // =====================================================
 // SERVIDOR
