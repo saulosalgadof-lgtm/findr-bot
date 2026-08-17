@@ -1477,7 +1477,321 @@ app.get(
     }
   }
 );
+// =====================================================
+// FINDR - CATALOG HUNTER DISCOVERY
+// =====================================================
 
+app.get(
+  "/catalog-hunter-discovery",
+  async (req, res) => {
+
+    try {
+
+      const query =
+        req.query.q;
+
+      if (!query) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar q. Ejemplo: /catalog-hunter-discovery?q=Apple+iPhone+13"
+
+        });
+      }
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 20,
+          50
+        );
+
+      const targetCandidates =
+        Math.min(
+          Number(req.query.target) || 5,
+          10
+        );
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR - CATALOG HUNTER DISCOVERY"
+      );
+
+      console.log(
+        "Query:",
+        query
+      );
+
+      console.log(
+        "Productos a revisar:",
+        limit
+      );
+
+      console.log(
+        "Candidatos objetivo:",
+        targetCandidates
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      // ------------------------------------------------
+      // 1. BUSCAR PRODUCTOS
+      // ------------------------------------------------
+
+      const params =
+        new URLSearchParams({
+
+          status:
+            "active",
+
+          site_id:
+            "MLM",
+
+          q:
+            query,
+
+          limit:
+            String(limit)
+
+        });
+
+      const searchData =
+        await mercadoLibreRequest(
+          `/products/search?${params.toString()}`
+        );
+
+      const products =
+        searchData.results || [];
+
+      console.log(
+        "Productos encontrados:",
+        products.length
+      );
+
+      // ------------------------------------------------
+      // 2. ANALIZAR PRODUCTOS
+      // ------------------------------------------------
+
+      const candidates = [];
+
+      const analyzed = [];
+
+      for (
+        const product
+        of products
+      ) {
+
+        if (
+          candidates.length >=
+          targetCandidates
+        ) {
+          break;
+        }
+
+        try {
+
+          console.log(
+            "Analizando:",
+            product.id,
+            product.name
+          );
+
+          const detail =
+            await mercadoLibreRequest(
+              `/products/${encodeURIComponent(
+                product.id
+              )}`
+            );
+
+          const winner =
+            detail.buy_box_winner ||
+            null;
+
+          const result = {
+
+            product_id:
+              detail.id,
+
+            name:
+              detail.name,
+
+            family_name:
+              detail.family_name ||
+              null,
+
+            domain_id:
+              detail.domain_id ||
+              null,
+
+            status:
+              detail.status,
+
+            sold_quantity:
+              detail.sold_quantity ||
+              0,
+
+            buy_box_winner:
+              winner
+                ? {
+
+                    item_id:
+                      winner.item_id,
+
+                    seller_id:
+                      winner.seller_id,
+
+                    price:
+                      winner.price,
+
+                    currency_id:
+                      winner.currency_id,
+
+                    sold_quantity:
+                      winner.sold_quantity,
+
+                    available_quantity:
+                      winner.available_quantity
+
+                  }
+                : null,
+
+            has_competition:
+              Boolean(winner)
+
+          };
+
+          analyzed.push(
+            result
+          );
+
+          // ------------------------------------------
+          // 3. SOLO CANDIDATOS CON COMPETENCIA
+          // ------------------------------------------
+
+          if (winner) {
+
+            console.log(
+              "🔥 COMPETENCIA ENCONTRADA:",
+              detail.id
+            );
+
+            candidates.push(
+              result
+            );
+
+          } else {
+
+            console.log(
+              "Sin Buy Box:",
+              detail.id
+            );
+          }
+
+        } catch (error) {
+
+          console.error(
+            "Error analizando producto:",
+            product.id,
+            error.message
+          );
+
+          analyzed.push({
+
+            product_id:
+              product.id,
+
+            name:
+              product.name,
+
+            analysis_error:
+              error.message
+
+          });
+        }
+      }
+
+      // ------------------------------------------------
+      // 4. RESULTADO
+      // ------------------------------------------------
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "ANÁLISIS TERMINADO"
+      );
+
+      console.log(
+        "Productos revisados:",
+        analyzed.length
+      );
+
+      console.log(
+        "Candidatos con competencia:",
+        candidates.length
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      res.json({
+
+        success:
+          true,
+
+        query,
+
+        search_total:
+          searchData.paging?.total ||
+          products.length,
+
+        products_analyzed:
+          analyzed.length,
+
+        candidates_found:
+          candidates.length,
+
+        candidates,
+
+        analyzed
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "❌ Error en Catalog Hunter:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+    }
+  }
+);
 // =====================================================
 // PUBLICACIONES DE UN PRODUCTO DE CATÁLOGO
 // =====================================================
