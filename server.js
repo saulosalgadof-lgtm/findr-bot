@@ -2450,6 +2450,346 @@ app.get(
   }
 );
 // =====================================================
+// FINDR - DISCOVERY ENGINE V2
+// =====================================================
+
+app.get(
+  "/catalog-discovery-v2",
+  async (req, res) => {
+
+    try {
+
+      const query =
+        req.query.q;
+
+      const domainId =
+        req.query.domain_id ||
+        "MLM-CELLPHONES";
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 20,
+          50
+        );
+
+      if (!query) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar q. Ejemplo: /catalog-discovery-v2?q=iPhone+13"
+
+        });
+      }
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR - DISCOVERY ENGINE V2"
+      );
+
+      console.log(
+        "Query:",
+        query
+      );
+
+      console.log(
+        "Domain:",
+        domainId
+      );
+
+      console.log(
+        "Limit:",
+        limit
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      // =================================================
+      // 1. BÚSQUEDA DE CATÁLOGO
+      // =================================================
+
+      const params =
+        new URLSearchParams({
+
+          status:
+            "active",
+
+          site_id:
+            "MLM",
+
+          q:
+            query,
+
+          domain_id:
+            domainId,
+
+          limit:
+            String(limit)
+
+        });
+
+      const data =
+        await mercadoLibreRequest(
+          `/products/search?${params.toString()}`
+        );
+
+      const products =
+        data.results || [];
+
+      // =================================================
+      // 2. NORMALIZAR RESULTADOS
+      // =================================================
+
+      const results =
+        products.map(
+          (product) => {
+
+            const attributes = {};
+
+            if (
+              Array.isArray(
+                product.attributes
+              )
+            ) {
+
+              for (
+                const attribute
+                of product.attributes
+              ) {
+
+                attributes[
+                  attribute.id
+                ] =
+                  attribute.value_name ||
+                  null;
+              }
+            }
+
+            return {
+
+              product_id:
+                product.id,
+
+              catalog_product_id:
+                product.catalog_product_id ||
+                product.id,
+
+              name:
+                product.name ||
+                null,
+
+              domain_id:
+                product.domain_id ||
+                null,
+
+              parent_id:
+                product.parent_id ||
+                null,
+
+              children_ids:
+                product.children_ids ||
+                [],
+
+              listing_strategy:
+                product.settings?.listing_strategy ||
+                null,
+
+              brand:
+                attributes.BRAND ||
+                null,
+
+              model:
+                attributes.MODEL ||
+                null,
+
+              memory:
+                attributes.INTERNAL_MEMORY ||
+                null,
+
+              color:
+                attributes.COLOR ||
+                null,
+
+              gtin:
+                attributes.GTIN ||
+                null,
+
+              attributes
+
+            };
+
+          }
+        );
+
+      // =================================================
+      // 3. FILTRO DE RELEVANCIA
+      // =================================================
+
+      const queryWords =
+        query
+          .toLowerCase()
+          .split(/\s+/)
+          .filter(
+            word =>
+              word.length > 2
+          );
+
+      const ranked =
+        results
+          .map(
+            product => {
+
+              const text =
+                `${product.name || ""} ${product.brand || ""} ${product.model || ""}`
+                  .toLowerCase();
+
+              let score = 0;
+
+              for (
+                const word
+                of queryWords
+              ) {
+
+                if (
+                  text.includes(word)
+                ) {
+
+                  score += 1;
+                }
+              }
+
+              // Coincidencia de marca
+              if (
+                query
+                  .toLowerCase()
+                  .includes("apple") &&
+                product.brand === "Apple"
+              ) {
+
+                score += 2;
+              }
+
+              // Coincidencia de modelo
+              if (
+                product.model &&
+                query
+                  .toLowerCase()
+                  .includes(
+                    product.model.toLowerCase()
+                  )
+              ) {
+
+                score += 2;
+              }
+
+              return {
+
+                ...product,
+
+                relevance_score:
+                  score
+
+              };
+
+            }
+          )
+          .sort(
+            (a, b) =>
+              b.relevance_score -
+              a.relevance_score
+          );
+
+      console.log(
+        "Productos devueltos:",
+        results.length
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "TOP PRODUCTOS"
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      ranked
+        .slice(0, 10)
+        .forEach(
+          (product, index) => {
+
+            console.log(
+              `${index + 1}.`,
+              product.product_id,
+              "|",
+              product.name,
+              "| Score:",
+              product.relevance_score
+            );
+
+          }
+        );
+
+      res.json({
+
+        success:
+          true,
+
+        query,
+
+        domain_id:
+          domainId,
+
+        search_total:
+          data.paging?.total ||
+          products.length,
+
+        products_found:
+          results.length,
+
+        results:
+          ranked
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "❌ Discovery V2 error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success: false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
+// =====================================================
 // PUBLICACIONES DE UN PRODUCTO DE CATÁLOGO
 // =====================================================
 
