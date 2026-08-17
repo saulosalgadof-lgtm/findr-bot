@@ -1321,7 +1321,178 @@ app.get(
     }
   }
 );
+// =====================================================
+// DETALLE DE PUBLICACIÓN
+// =====================================================
 
+app.get(
+  "/item-detail",
+  async (req, res) => {
+
+    try {
+
+      const itemId =
+        req.query.item_id;
+
+      if (!itemId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar item_id. Ejemplo: /item-detail?item_id=MLM123456789"
+
+        });
+      }
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR - DETALLE DE PUBLICACIÓN"
+      );
+
+      console.log(
+        "Item ID:",
+        itemId
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      const item =
+        await mercadoLibreRequest(
+          `/items/${encodeURIComponent(itemId)}`
+        );
+
+      const result = {
+
+        item_id:
+          item.id,
+
+        site_id:
+          item.site_id || null,
+
+        title:
+          item.title || null,
+
+        seller_id:
+          item.seller_id || null,
+
+        category_id:
+          item.category_id || null,
+
+        price:
+          item.price || null,
+
+        base_price:
+          item.base_price || null,
+
+        original_price:
+          item.original_price || null,
+
+        currency_id:
+          item.currency_id || null,
+
+        initial_quantity:
+          item.initial_quantity || 0,
+
+        available_quantity:
+          item.available_quantity || 0,
+
+        sold_quantity:
+          item.sold_quantity || 0,
+
+        condition:
+          item.condition || null,
+
+        status:
+          item.status || null,
+
+        catalog_product_id:
+          item.catalog_product_id || null,
+
+        domain_id:
+          item.domain_id || null,
+
+        listing_type_id:
+          item.listing_type_id || null,
+
+        catalog_listing:
+          item.catalog_listing || false,
+
+        permalink:
+          item.permalink || null,
+
+        shipping:
+          item.shipping || null,
+
+        tags:
+          item.tags || [],
+
+        date_created:
+          item.date_created || null,
+
+        last_updated:
+          item.last_updated || null
+
+      };
+
+      console.log(
+        "Publicación encontrada:"
+      );
+
+      console.log(
+        JSON.stringify(
+          result,
+          null,
+          2
+        )
+      );
+
+      res.json({
+
+        success:
+          true,
+
+        item:
+          result
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Error obteniendo publicación:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        item_id:
+          req.query.item_id ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+    }
+  }
+);
 // =====================================================
 // DETALLE DE PRODUCTO DE CATÁLOGO
 // =====================================================
