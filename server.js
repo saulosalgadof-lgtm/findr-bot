@@ -2779,6 +2779,226 @@ app.get(
   }
 );
 // =====================================================
+// PRODUCT COMPETITION / BUY BOX
+// =====================================================
+//
+// Obtiene el detalle de un producto de catálogo
+// y extrae la publicación ganadora (buy_box_winner).
+//
+// Mercado Libre:
+// GET /products/{PRODUCT_ID}
+//
+// =====================================================
+
+app.get(
+  "/product-competition",
+  async (req, res) => {
+
+    try {
+
+      const productId =
+        req.query.product_id;
+
+      if (!productId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar product_id."
+
+        });
+
+      }
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR PRODUCT COMPETITION"
+      );
+
+      console.log(
+        "Product ID:",
+        productId
+      );
+
+      console.log(
+        "======================================"
+      );
+
+
+      // -----------------------------------------------
+      // PRODUCT DETAIL
+      // -----------------------------------------------
+
+      const product =
+        await mercadoLibreRequest(
+          `/products/${encodeURIComponent(
+            productId
+          )}`
+        );
+
+
+      // -----------------------------------------------
+      // BUY BOX
+      // -----------------------------------------------
+
+      const winner =
+        product.buy_box_winner ||
+        null;
+
+
+      // -----------------------------------------------
+      // RESPUESTA NORMALIZADA
+      // -----------------------------------------------
+
+      res.json({
+
+        success: true,
+
+        product: {
+
+          product_id:
+            product.id ||
+            null,
+
+          name:
+            product.name ||
+            null,
+
+          family_name:
+            product.family_name ||
+            null,
+
+          domain_id:
+            product.domain_id ||
+            null,
+
+          status:
+            product.status ||
+            null,
+
+          sold_quantity:
+            product.sold_quantity ||
+            0,
+
+          permalink:
+            product.permalink ||
+            null
+
+        },
+
+        competition: {
+
+          has_buy_box_winner:
+            !!winner,
+
+          winner:
+            winner
+              ? {
+
+                  item_id:
+                    winner.item_id ||
+                    null,
+
+                  seller_id:
+                    winner.seller_id ||
+                    null,
+
+                  price:
+                    winner.price ||
+                    null,
+
+                  currency_id:
+                    winner.currency_id ||
+                    null,
+
+                  sold_quantity:
+                    winner.sold_quantity ||
+                    0,
+
+                  available_quantity:
+                    winner.available_quantity ||
+                    0,
+
+                  condition:
+                    winner.condition ||
+                    null,
+
+                  original_price:
+                    winner.original_price ||
+                    null,
+
+                  listing_type_id:
+                    winner.listing_type_id ||
+                    null,
+
+                  official_store_id:
+                    winner.official_store_id ||
+                    null,
+
+                  shipping:
+                    winner.shipping ||
+                    null,
+
+                  seller:
+                    winner.seller ||
+                    null,
+
+                  warranty:
+                    winner.warranty ||
+                    null
+
+                }
+              : null,
+
+          price_range:
+            product.buy_box_winner_price_range ||
+            null
+
+        },
+
+        raw_product:
+          product
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Product competition error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success: false,
+
+        status:
+          error.status ||
+          null,
+
+        product_id:
+          req.query.product_id ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
+
+// =====================================================
 // SERVIDOR
 // =====================================================
 
