@@ -2,10 +2,10 @@ import express from "express";
 
 const app = express();
 
-const PORT =
-  process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
+
 
 // =====================================================
 // CONFIGURACIÓN
@@ -26,8 +26,9 @@ const MERCADOLIBRE_CLIENT_SECRET =
 const MERCADOLIBRE_REDIRECT_URI =
   process.env.MERCADOLIBRE_REDIRECT_URI;
 
+
 // =====================================================
-// VALIDACIÓN DE CONFIGURACIÓN
+// INICIO
 // =====================================================
 
 console.log(
@@ -35,7 +36,7 @@ console.log(
 );
 
 console.log(
-  "FINDR BOT - INICIANDO"
+  "FINDR BOT - STARTING"
 );
 
 console.log(
@@ -44,27 +45,27 @@ console.log(
 
 console.log(
   "SUPABASE_URL:",
-  SUPABASE_URL ? "OK" : "FALTA"
+  SUPABASE_URL ? "OK" : "MISSING"
 );
 
 console.log(
   "SUPABASE_SECRET_KEY:",
-  SUPABASE_SECRET_KEY ? "OK" : "FALTA"
+  SUPABASE_SECRET_KEY ? "OK" : "MISSING"
 );
 
 console.log(
   "MERCADOLIBRE_CLIENT_ID:",
-  MERCADOLIBRE_CLIENT_ID ? "OK" : "FALTA"
+  MERCADOLIBRE_CLIENT_ID ? "OK" : "MISSING"
 );
 
 console.log(
   "MERCADOLIBRE_CLIENT_SECRET:",
-  MERCADOLIBRE_CLIENT_SECRET ? "OK" : "FALTA"
+  MERCADOLIBRE_CLIENT_SECRET ? "OK" : "MISSING"
 );
 
 console.log(
   "MERCADOLIBRE_REDIRECT_URI:",
-  MERCADOLIBRE_REDIRECT_URI ? "OK" : "FALTA"
+  MERCADOLIBRE_REDIRECT_URI ? "OK" : "MISSING"
 );
 
 console.log(
@@ -73,7 +74,7 @@ console.log(
 
 
 // =====================================================
-// SUPABASE REQUEST
+// SUPABASE
 // =====================================================
 
 async function supabaseRequest(
@@ -139,6 +140,7 @@ async function supabaseRequest(
       data;
 
     throw error;
+
   }
 
   return data;
@@ -146,7 +148,7 @@ async function supabaseRequest(
 
 
 // =====================================================
-// GUARDAR CUENTA MERCADO LIBRE
+// MERCADO LIBRE - GUARDAR CUENTA
 // =====================================================
 
 async function saveMercadoLibreAccount(
@@ -186,7 +188,8 @@ async function saveMercadoLibreAccount(
   const expiresAt =
     new Date(
       Date.now() +
-      (tokenData.expires_in || 0) * 1000
+      (tokenData.expires_in || 0) *
+      1000
     ).toISOString();
 
   const accountData = {
@@ -202,9 +205,6 @@ async function saveMercadoLibreAccount(
     access_token:
       tokenData.access_token,
 
-    // MUY IMPORTANTE:
-    // cada refresh puede generar
-    // un nuevo refresh_token.
     refresh_token:
       tokenData.refresh_token ||
       currentAccount?.refresh_token ||
@@ -240,7 +240,7 @@ async function saveMercadoLibreAccount(
     );
 
     console.log(
-      "Cuenta Mercado Libre actualizada:",
+      "Mercado Libre account updated:",
       userId
     );
 
@@ -270,14 +270,15 @@ async function saveMercadoLibreAccount(
   );
 
   console.log(
-    "Cuenta Mercado Libre guardada:",
+    "Mercado Libre account saved:",
     userId
   );
+
 }
 
 
 // =====================================================
-// OBTENER CUENTA MERCADO LIBRE
+// MERCADO LIBRE - OBTENER CUENTA
 // =====================================================
 
 async function getMercadoLibreAccount() {
@@ -303,7 +304,7 @@ async function getMercadoLibreAccount() {
 
 
 // =====================================================
-// REFRESH TOKEN
+// MERCADO LIBRE - REFRESH TOKEN
 // =====================================================
 
 async function refreshMercadoLibreToken(
@@ -319,7 +320,7 @@ async function refreshMercadoLibreToken(
   }
 
   console.log(
-    "Refrescando Access Token..."
+    "Refreshing Mercado Libre token..."
   );
 
   const response =
@@ -366,7 +367,7 @@ async function refreshMercadoLibreToken(
   if (!response.ok) {
 
     console.error(
-      "Error refrescando token:",
+      "Refresh token error:",
       tokenData
     );
 
@@ -388,10 +389,6 @@ async function refreshMercadoLibreToken(
 
   });
 
-  console.log(
-    "Access Token actualizado."
-  );
-
   return {
 
     ...account,
@@ -406,15 +403,17 @@ async function refreshMercadoLibreToken(
     expires_at:
       new Date(
         Date.now() +
-        (tokenData.expires_in || 0) * 1000
+        (tokenData.expires_in || 0) *
+        1000
       ).toISOString()
 
   };
+
 }
 
 
 // =====================================================
-// OBTENER CUENTA CON TOKEN VÁLIDO
+// MERCADO LIBRE - TOKEN VÁLIDO
 // =====================================================
 
 async function getValidMercadoLibreAccount() {
@@ -433,9 +432,6 @@ async function getValidMercadoLibreAccount() {
     expiresAt -
     Date.now();
 
-  // Renovamos si quedan menos
-  // de 2 minutos.
-
   if (
     !expiresAt ||
     remaining < 120000
@@ -453,7 +449,7 @@ async function getValidMercadoLibreAccount() {
 
 
 // =====================================================
-// REQUEST A MERCADO LIBRE
+// MERCADO LIBRE - REQUEST
 // =====================================================
 
 async function mercadoLibreRequest(
@@ -489,16 +485,16 @@ async function mercadoLibreRequest(
   let data =
     await response.json();
 
-  // ---------------------------------------------------
-  // ACCESS TOKEN INVÁLIDO
-  // ---------------------------------------------------
+  // -----------------------------------------------
+  // TOKEN EXPIRADO / INVÁLIDO
+  // -----------------------------------------------
 
   if (
     response.status === 401
   ) {
 
     console.log(
-      "Token inválido. Ejecutando refresh..."
+      "Access token invalid. Refreshing..."
     );
 
     account =
@@ -589,7 +585,7 @@ app.get(
 
         <hr>
 
-        <h3>Herramientas</h3>
+        <h3>FINDR</h3>
 
         <p>
           <a href="/test-ml">
@@ -604,20 +600,20 @@ app.get(
         </p>
 
         <p>
-          <a href="/products-search?q=Apple+iPhone+13&limit=10">
-            Product Search
+          <a href="/market-trends">
+            Market Trends
           </a>
         </p>
 
         <p>
-          <a href="/catalog-discovery-v2?q=Apple+iPhone+13&limit=20">
-            Discovery V2
+          <a href="/trend-intelligence?q=iphone%2011%20usado">
+            Trend Intelligence
           </a>
         </p>
 
         <p>
-          <a href="/item-detail?item_id=MLM3222968557">
-            Item Detail
+          <a href="/trend-to-product?q=iphone%2011%20usado">
+            Trend → Product
           </a>
         </p>
 
@@ -654,7 +650,7 @@ app.get(
 
 
 // =====================================================
-// OAUTH - INICIAR
+// OAUTH - INICIO
 // =====================================================
 
 app.get(
@@ -756,8 +752,7 @@ app.get(
                 client_secret:
                   MERCADOLIBRE_CLIENT_SECRET,
 
-                code:
-                  code,
+                code,
 
                 redirect_uri:
                   MERCADOLIBRE_REDIRECT_URI
@@ -874,10 +869,12 @@ app.get(
           user.id,
 
         nickname:
-          user.nickname || null,
+          user.nickname ||
+          null,
 
         country:
-          user.country_id || null,
+          user.country_id ||
+          null,
 
         access_token:
           "valid"
@@ -911,7 +908,7 @@ app.get(
 
 
 // =====================================================
-// NOTIFICACIONES MERCADO LIBRE
+// NOTIFICACIONES
 // =====================================================
 
 app.post(
@@ -923,7 +920,7 @@ app.post(
     );
 
     console.log(
-      "📩 NOTIFICACIÓN MERCADO LIBRE"
+      "📩 MERCADO LIBRE NOTIFICATION"
     );
 
     console.log(
@@ -938,19 +935,20 @@ app.post(
       "======================================"
     );
 
-    // Respondemos inmediatamente.
+    // Respondemos inmediatamente
+    // a Mercado Libre.
+
     res.sendStatus(200);
 
     processMercadoLibreNotification(
       req.body
     )
     .catch(
-      (error) => {
+      error => {
 
         console.error(
-          "Error procesando notificación:",
+          "Notification processing error:",
           error
-
         );
 
       }
@@ -996,7 +994,6 @@ async function processMercadoLibreNotification(
     userId
   );
 
-  // Por ahora procesamos items.
   if (
     topic !== "items"
   ) {
@@ -1007,15 +1004,17 @@ async function processMercadoLibreNotification(
     );
 
     return;
+
   }
 
   if (!resource) {
 
     console.log(
-      "Notificación sin resource."
+      "Notification without resource."
     );
 
     return;
+
   }
 
   const item =
@@ -1102,9 +1101,10 @@ async function processMercadoLibreNotification(
   );
 
   console.log(
-    "💾 Item guardado:",
+    "Item saved:",
     item.id
   );
+
 }
 
 
@@ -1375,10 +1375,6 @@ app.get(
           )}/items?${params.toString()}`
         );
 
-      const results =
-        data.results ||
-        [];
-
       res.json({
 
         success:
@@ -1389,9 +1385,11 @@ app.get(
 
         total_results:
           data.paging?.total ||
-          results.length,
+          0,
 
-        results
+        results:
+          data.results ||
+          []
 
       });
 
@@ -1599,1249 +1597,7 @@ app.get(
 
 
 // =====================================================
-// DISCOVERY ENGINE V2
-// =====================================================
-
-app.get(
-  "/catalog-discovery-v2",
-  async (req, res) => {
-
-    try {
-
-      const query =
-        req.query.q;
-
-      if (!query) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          error:
-            "Debes proporcionar q."
-
-        });
-
-      }
-
-      const limit =
-        Math.min(
-          Number(req.query.limit) || 20,
-          50
-        );
-
-      const domainId =
-        req.query.domain_id ||
-        null;
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "FINDR DISCOVERY V2"
-      );
-
-      console.log(
-        "Query:",
-        query
-      );
-
-      console.log(
-        "Domain:",
-        domainId ||
-        "sin filtro"
-      );
-
-      console.log(
-        "Limit:",
-        limit
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      // ------------------------------------------------
-      // CONSTRUCCIÓN DE BÚSQUEDA
-      // ------------------------------------------------
-
-      const params =
-        new URLSearchParams({
-
-          status:
-            "active",
-
-          site_id:
-            "MLM",
-
-          q:
-            query,
-
-          limit:
-            String(limit)
-
-        });
-
-      // domain_id es OPCIONAL.
-      // Solo lo agregamos si el usuario
-      // realmente lo proporcionó.
-
-      if (domainId) {
-
-        params.set(
-          "domain_id",
-          domainId
-        );
-
-      }
-
-      const data =
-        await mercadoLibreRequest(
-          `/products/search?${params.toString()}`
-        );
-
-      const products =
-        data.results ||
-        [];
-
-      // ------------------------------------------------
-      // NORMALIZACIÓN
-      // ------------------------------------------------
-
-      const normalized =
-        products.map(
-          (product) => {
-
-            const attributes = {};
-
-            if (
-              Array.isArray(
-                product.attributes
-              )
-            ) {
-
-              for (
-                const attribute
-                of product.attributes
-              ) {
-
-                attributes[
-                  attribute.id
-                ] =
-                  attribute.value_name ||
-                  null;
-
-              }
-
-            }
-
-            return {
-
-              product_id:
-                product.id,
-
-              catalog_product_id:
-                product.catalog_product_id ||
-                product.id,
-
-              name:
-                product.name ||
-                null,
-
-              domain_id:
-                product.domain_id ||
-                null,
-
-              parent_id:
-                product.parent_id ||
-                null,
-
-              children_ids:
-                product.children_ids ||
-                [],
-
-              listing_strategy:
-                product.settings?.listing_strategy ||
-                null,
-
-              brand:
-                attributes.BRAND ||
-                null,
-
-              model:
-                attributes.MODEL ||
-                null,
-
-              memory:
-                attributes.INTERNAL_MEMORY ||
-                null,
-
-              color:
-                attributes.COLOR ||
-                null,
-
-              gtin:
-                attributes.GTIN ||
-                null,
-
-              attributes
-
-            };
-
-          }
-        );
-
-      // ------------------------------------------------
-      // RELEVANCIA LOCAL
-      // ------------------------------------------------
-
-      const queryWords =
-        query
-          .toLowerCase()
-          .split(/\s+/)
-          .filter(
-            word =>
-              word.length >= 2
-          );
-
-      const ranked =
-        normalized
-          .map(
-            (product) => {
-
-              const text =
-                [
-
-                  product.name,
-
-                  product.brand,
-
-                  product.model,
-
-                  product.memory,
-
-                  product.color
-
-                ]
-                  .filter(Boolean)
-                  .join(" ")
-                  .toLowerCase();
-
-              let score =
-                0;
-
-              for (
-                const word
-                of queryWords
-              ) {
-
-                if (
-                  text.includes(word)
-                ) {
-
-                  score += 1;
-
-                }
-
-              }
-
-              // Coincidencia de marca
-
-              if (
-                product.brand &&
-                query
-                  .toLowerCase()
-                  .includes(
-                    product.brand.toLowerCase()
-                  )
-              ) {
-
-                score += 2;
-
-              }
-
-              // Coincidencia de modelo
-
-              if (
-                product.model &&
-                query
-                  .toLowerCase()
-                  .includes(
-                    product.model.toLowerCase()
-                  )
-              ) {
-
-                score += 2;
-
-              }
-
-              return {
-
-                ...product,
-
-                relevance_score:
-                  score
-
-              };
-
-            }
-          )
-          .sort(
-            (a, b) =>
-              b.relevance_score -
-              a.relevance_score
-          );
-
-      // ------------------------------------------------
-      // RESPUESTA
-      // ------------------------------------------------
-
-      res.json({
-
-        success:
-          true,
-
-        query,
-
-        domain_id:
-          domainId,
-
-        search_total:
-          data.paging?.total ||
-          products.length,
-
-        products_found:
-          products.length,
-
-        results:
-          ranked
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Discovery V2 error:",
-        error
-      );
-
-      res.status(
-        error.status || 500
-      ).json({
-
-        success:
-          false,
-
-        status:
-          error.status ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      });
-
-    }
-
-  }
-);
-// =====================================================
-// FINDR - COMPETITION DISCOVERY V3
-// =====================================================
-
-app.get(
-  "/catalog-find-competition",
-  async (req, res) => {
-
-    try {
-
-      const query =
-        req.query.q;
-
-      if (!query) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          error:
-            "Debes proporcionar q. Ejemplo: /catalog-find-competition?q=Samsung+Galaxy"
-
-        });
-
-      }
-
-      const limit =
-        Math.min(
-          Number(req.query.limit) || 20,
-          50
-        );
-
-      const target =
-        Math.min(
-          Number(req.query.target) || 3,
-          10
-        );
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "FINDR - COMPETITION DISCOVERY V3"
-      );
-
-      console.log(
-        "Query:",
-        query
-      );
-
-      console.log(
-        "Products to inspect:",
-        limit
-      );
-
-      console.log(
-        "Target candidates:",
-        target
-      );
-
-      console.log(
-        "======================================"
-      );
-
-
-      // =================================================
-      // 1. BUSCAR PRODUCTOS
-      // =================================================
-
-      const searchParams =
-        new URLSearchParams({
-
-          status:
-            "active",
-
-          site_id:
-            "MLM",
-
-          q:
-            query,
-
-          limit:
-            String(limit)
-
-        });
-
-
-      const searchData =
-        await mercadoLibreRequest(
-          `/products/search?${searchParams.toString()}`
-        );
-
-
-      const products =
-        searchData.results ||
-        [];
-
-
-      console.log(
-        "Productos encontrados:",
-        products.length
-      );
-
-
-      // =================================================
-      // 2. ANALIZAR PRODUCTOS
-      // =================================================
-
-      const candidates = [];
-
-      const analyzed = [];
-
-
-      for (
-        const product
-        of products
-      ) {
-
-        if (
-          candidates.length >=
-          target
-        ) {
-
-          break;
-
-        }
-
-
-        try {
-
-          console.log(
-            "--------------------------------------"
-          );
-
-          console.log(
-            "Analizando:",
-            product.id
-          );
-
-          console.log(
-            "Nombre:",
-            product.name
-          );
-
-
-          // =============================================
-          // 3. DETALLE DEL PRODUCTO
-          // =============================================
-
-          const detail =
-            await mercadoLibreRequest(
-              `/products/${encodeURIComponent(
-                product.id
-              )}`
-            );
-
-
-          // =============================================
-          // 4. PRODUCTO INACTIVO
-          // =============================================
-
-          if (
-            detail.status !==
-            "active"
-          ) {
-
-            analyzed.push({
-
-              product_id:
-                detail.id,
-
-              name:
-                detail.name,
-
-              status:
-                detail.status,
-
-              has_buy_box:
-                false,
-
-              reason:
-                "inactive"
-
-            });
-
-            continue;
-
-          }
-
-
-          // =============================================
-          // 5. ¿TIENE BUY BOX?
-          // =============================================
-
-          const winner =
-            detail.buy_box_winner ||
-            null;
-
-
-          if (!winner) {
-
-            console.log(
-              "Sin Buy Box:",
-              detail.id
-            );
-
-            analyzed.push({
-
-              product_id:
-                detail.id,
-
-              name:
-                detail.name,
-
-              status:
-                detail.status,
-
-              has_buy_box:
-                false,
-
-              reason:
-                "no_buy_box"
-
-            });
-
-            continue;
-
-          }
-
-
-          console.log(
-            "🔥 BUY BOX ENCONTRADO"
-          );
-
-          console.log(
-            "Item:",
-            winner.item_id
-          );
-
-          console.log(
-            "Seller:",
-            winner.seller_id
-          );
-
-          console.log(
-            "Precio:",
-            winner.price
-          );
-
-
-          // =============================================
-          // 6. INTENTAR OBTENER TODAS LAS PUBLICACIONES
-          // =============================================
-
-          let competition =
-            null;
-
-
-          try {
-
-            competition =
-              await mercadoLibreRequest(
-                `/products/${encodeURIComponent(
-                  detail.id
-                )}/items?limit=100`
-              );
-
-          } catch (competitionError) {
-
-            console.log(
-              "No fue posible obtener listado completo:",
-              competitionError.status,
-              competitionError.message
-            );
-
-          }
-
-
-          // =============================================
-          // 7. NORMALIZAR COMPETIDORES
-          // =============================================
-
-          const rawItems =
-            competition?.results ||
-            [];
-
-
-          const competitors =
-            rawItems.map(
-              (item) => ({
-
-                item_id:
-                  item.item_id ||
-                  null,
-
-                seller_id:
-                  item.seller_id ||
-                  null,
-
-                price:
-                  item.price ||
-                  null,
-
-                currency_id:
-                  item.currency_id ||
-                  null,
-
-                condition:
-                  item.condition ||
-                  null,
-
-                available_quantity:
-                  item.available_quantity ||
-                  null,
-
-                original_price:
-                  item.original_price ||
-                  null,
-
-                listing_type_id:
-                  item.listing_type_id ||
-                  null,
-
-                official_store_id:
-                  item.official_store_id ||
-                  null,
-
-                shipping:
-                  item.shipping ||
-                  null
-
-              })
-            );
-
-
-          // =============================================
-          // 8. GARANTIZAR QUE EL WINNER APAREZCA
-          // =============================================
-
-          const winnerAlreadyIncluded =
-            competitors.some(
-              item =>
-                item.item_id ===
-                winner.item_id
-            );
-
-
-          if (
-            !winnerAlreadyIncluded
-          ) {
-
-            competitors.unshift({
-
-              item_id:
-                winner.item_id ||
-                null,
-
-              seller_id:
-                winner.seller_id ||
-                null,
-
-              price:
-                winner.price ||
-                null,
-
-              currency_id:
-                winner.currency_id ||
-                null,
-
-              condition:
-                winner.condition ||
-                null,
-
-              available_quantity:
-                winner.available_quantity ||
-                null,
-
-              original_price:
-                winner.original_price ||
-                null,
-
-              listing_type_id:
-                winner.listing_type_id ||
-                null,
-
-              official_store_id:
-                winner.official_store_id ||
-                null,
-
-              shipping:
-                winner.shipping ||
-                null
-
-            });
-
-          }
-
-
-          // =============================================
-          // 9. CREAR CANDIDATO
-          // =============================================
-
-          const candidate = {
-
-            product_id:
-              detail.id,
-
-            name:
-              detail.name,
-
-            family_name:
-              detail.family_name ||
-              null,
-
-            domain_id:
-              detail.domain_id ||
-              null,
-
-            status:
-              detail.status,
-
-            sold_quantity:
-              detail.sold_quantity ||
-              0,
-
-            buy_box_winner:
-              winner,
-
-            competitors_count:
-              competitors.length,
-
-            competitors
-
-          };
-
-
-          candidates.push(
-            candidate
-          );
-
-
-          analyzed.push({
-
-            product_id:
-              detail.id,
-
-            name:
-              detail.name,
-
-            status:
-              detail.status,
-
-            has_buy_box:
-              true,
-
-            competitors_count:
-              competitors.length
-
-          });
-
-
-          console.log(
-            "🔥 CANDIDATO:",
-            detail.id
-          );
-
-
-        } catch (error) {
-
-          console.error(
-            "Error analizando:",
-            product.id,
-            error.message
-          );
-
-
-          analyzed.push({
-
-            product_id:
-              product.id,
-
-            name:
-              product.name,
-
-            has_buy_box:
-              false,
-
-            reason:
-              "analysis_error",
-
-            error:
-              error.message
-
-          });
-
-        }
-
-      }
-
-
-      // =================================================
-      // 10. RESULTADO
-      // =================================================
-
-      res.json({
-
-        success:
-          true,
-
-        query,
-
-        search_total:
-          searchData.paging?.total ||
-          products.length,
-
-        products_found:
-          products.length,
-
-        products_analyzed:
-          analyzed.length,
-
-        candidates_found:
-          candidates.length,
-
-        candidates,
-
-        analyzed
-
-      });
-
-
-    } catch (error) {
-
-      console.error(
-        "❌ Competition Discovery V3 error:",
-        error
-      );
-
-
-      res.status(
-        error.status || 500
-      ).json({
-
-        success:
-          false,
-
-        status:
-          error.status ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      });
-
-    }
-
-  }
-);
-// =====================================================
-// FINDR - MARKETPLACE SEARCH DIAGNOSTIC
-// =====================================================
-
-app.get(
-  "/marketplace-search-test",
-  async (req, res) => {
-
-    try {
-
-      const query =
-        req.query.q ||
-        "iPhone 13";
-
-      const condition =
-        req.query.condition ||
-        "used";
-
-      const sort =
-        req.query.sort ||
-        "price_asc";
-
-      const limit =
-        Math.min(
-          Number(req.query.limit) || 20,
-          50
-        );
-
-      const params =
-        new URLSearchParams({
-
-          q:
-            query,
-
-          condition:
-            condition,
-
-          sort:
-            sort,
-
-          limit:
-            String(limit)
-
-        });
-
-      const endpoint =
-        `/sites/MLM/search?${params.toString()}`;
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "FINDR - MARKETPLACE SEARCH TEST"
-      );
-
-      console.log(
-        "Endpoint:",
-        endpoint
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      const account =
-        await getValidMercadoLibreAccount();
-
-      const response =
-        await fetch(
-          `https://api.mercadolibre.com${endpoint}`,
-          {
-
-            headers: {
-
-              Authorization:
-                `Bearer ${account.access_token}`,
-
-              accept:
-                "application/json"
-
-            }
-
-          }
-        );
-
-      const data =
-        await response.json();
-
-      console.log(
-        "STATUS:",
-        response.status
-      );
-
-      console.log(
-        "RESPONSE:",
-        JSON.stringify(
-          data,
-          null,
-          2
-        )
-      );
-
-      res.status(
-        response.ok
-          ? 200
-          : response.status
-      ).json({
-
-        success:
-          response.ok,
-
-        status:
-          response.status,
-
-        endpoint,
-
-        query,
-
-        condition,
-
-        sort,
-
-        result_count:
-          data.results?.length ||
-          0,
-
-        total:
-          data.paging?.total ||
-          0,
-
-        available_filters:
-          data.available_filters ||
-          [],
-
-        available_sorts:
-          data.available_sorts ||
-          [],
-
-        results:
-          response.ok
-            ? data.results || []
-            : [],
-
-        error:
-          response.ok
-            ? null
-            : data
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Marketplace search diagnostic error:",
-        error
-      );
-
-      res.status(500).json({
-
-        success:
-          false,
-
-        status:
-          error.status ||
-          500,
-
-        error:
-          error.data ||
-          error.message
-
-      });
-
-    }
-
-  }
-);
-// =====================================================
-// FINDR - SELLER ITEMS DISCOVERY
-// =====================================================
-
-app.get(
-  "/seller-items",
-  async (req, res) => {
-
-    try {
-
-      const sellerId =
-        req.query.seller_id;
-
-      if (!sellerId) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          error:
-            "Debes proporcionar seller_id."
-
-        });
-
-      }
-
-      const limit =
-        Math.min(
-          Number(req.query.limit) || 20,
-          50
-        );
-
-      const offset =
-        Math.max(
-          Number(req.query.offset) || 0,
-          0
-        );
-
-      const sort =
-        req.query.sort ||
-        "price_asc";
-
-      const params =
-        new URLSearchParams({
-
-          seller_id:
-            sellerId,
-
-          limit:
-            String(limit),
-
-          offset:
-            String(offset),
-
-          sort:
-            sort
-
-        });
-
-      const endpoint =
-        `/sites/MLM/search?${params.toString()}`;
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "FINDR - SELLER ITEMS"
-      );
-
-      console.log(
-        "Seller:",
-        sellerId
-      );
-
-      console.log(
-        "Endpoint:",
-        endpoint
-      );
-
-      console.log(
-        "======================================"
-      );
-
-      const data =
-        await mercadoLibreRequest(
-          endpoint
-        );
-
-      res.json({
-
-        success:
-          true,
-
-        seller_id:
-          sellerId,
-
-        total:
-          data.paging?.total ||
-          0,
-
-        limit:
-          data.paging?.limit ||
-          limit,
-
-        offset:
-          data.paging?.offset ||
-          offset,
-
-        available_filters:
-          data.available_filters ||
-          [],
-
-        available_sorts:
-          data.available_sorts ||
-          [],
-
-        results:
-          data.results ||
-          []
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Seller items error:",
-        error
-      );
-
-      res.status(
-        error.status || 500
-      ).json({
-
-        success:
-          false,
-
-        status:
-          error.status ||
-          null,
-
-        seller_id:
-          req.query.seller_id ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      });
-
-    }
-
-  }
-);
-// =====================================================
-// FINDR - MARKET TRENDS
+// MARKET TRENDS
 // =====================================================
 
 app.get(
@@ -2903,8 +1659,230 @@ app.get(
 
   }
 );
+
+
 // =====================================================
-// FINDR - TREND → PRODUCT ENGINE V1
+// TREND INTELLIGENCE V2
+// =====================================================
+
+function parseTrendQuery(
+  rawQuery
+) {
+
+  const original =
+    String(rawQuery || "")
+      .trim();
+
+  const normalized =
+    original
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(
+        /[\u0300-\u036f]/g,
+        ""
+      )
+      .replace(
+        /[^\w\s-]/g,
+        " "
+      )
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .trim();
+
+  let condition =
+    null;
+
+  let productQuery =
+    normalized;
+
+
+  // -----------------------------------------------
+  // USED
+  // -----------------------------------------------
+
+  const usedPatterns = [
+
+    "usado",
+    "usada",
+    "usados",
+    "usadas",
+    "segunda mano",
+    "segunda-mano",
+    "seminuevo",
+    "seminueva",
+    "seminuevos",
+    "seminuevas"
+
+  ];
+
+
+  for (
+    const pattern
+    of usedPatterns
+  ) {
+
+    if (
+      productQuery.includes(
+        pattern
+      )
+    ) {
+
+      condition =
+        "used";
+
+      productQuery =
+        productQuery.replace(
+          pattern,
+          " "
+        );
+
+      break;
+
+    }
+
+  }
+
+
+  // -----------------------------------------------
+  // REFURBISHED
+  // -----------------------------------------------
+
+  const refurbishedPatterns = [
+
+    "reacondicionado",
+    "reacondicionada",
+    "reacondicionados",
+    "reacondicionadas",
+    "refurbished"
+
+  ];
+
+
+  if (!condition) {
+
+    for (
+      const pattern
+      of refurbishedPatterns
+    ) {
+
+      if (
+        productQuery.includes(
+          pattern
+        )
+      ) {
+
+        condition =
+          "refurbished";
+
+        productQuery =
+          productQuery.replace(
+            pattern,
+            " "
+          );
+
+        break;
+
+      }
+
+    }
+
+  }
+
+
+  productQuery =
+    productQuery
+      .replace(
+        /\s+/g,
+        " "
+      )
+      .trim();
+
+
+  return {
+
+    raw_query:
+      original,
+
+    product_query:
+      productQuery,
+
+    condition,
+
+    parser_version:
+      "v2"
+
+  };
+
+}
+
+
+// =====================================================
+// TREND INTELLIGENCE TEST
+// =====================================================
+
+app.get(
+  "/trend-intelligence",
+  async (req, res) => {
+
+    try {
+
+      const query =
+        req.query.q;
+
+      if (!query) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar q."
+
+        });
+
+      }
+
+      const parsed =
+        parseTrendQuery(
+          query
+        );
+
+      res.json({
+
+        success:
+          true,
+
+        ...parsed
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Trend Intelligence error:",
+        error
+      );
+
+      res.status(500).json({
+
+        success:
+          false,
+
+        error:
+          error.message
+
+      });
+
+    }
+
+  }
+);
+
+
+// =====================================================
+// TREND → PRODUCT V2
 // =====================================================
 
 app.get(
@@ -2923,11 +1901,54 @@ app.get(
           success: false,
 
           error:
-            "Debes proporcionar q. Ejemplo: /trend-to-product?q=iphone+11+usado"
+            "Debes proporcionar q."
 
         });
 
       }
+
+
+      // -----------------------------------------------
+      // 1. INTERPRETAR TENDENCIA
+      // -----------------------------------------------
+
+      const parsed =
+        parseTrendQuery(
+          query
+        );
+
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR - TREND → PRODUCT V2"
+      );
+
+      console.log(
+        "Raw query:",
+        parsed.raw_query
+      );
+
+      console.log(
+        "Product query:",
+        parsed.product_query
+      );
+
+      console.log(
+        "Condition:",
+        parsed.condition
+      );
+
+      console.log(
+        "======================================"
+      );
+
+
+      // -----------------------------------------------
+      // 2. BUSCAR PRODUCTO
+      // -----------------------------------------------
 
       const limit =
         Math.min(
@@ -2935,38 +1956,6 @@ app.get(
           50
         );
 
-      const offset =
-        Math.max(
-          Number(req.query.offset) || 0,
-          0
-        );
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "FINDR - TREND → PRODUCT V1"
-      );
-
-      console.log(
-        "Query:",
-        query
-      );
-
-      console.log(
-        "Limit:",
-        limit
-      );
-
-      console.log(
-        "======================================"
-      );
-
-
-      // =================================================
-      // 1. BUSCAR PRODUCTOS DE CATÁLOGO
-      // =================================================
 
       const params =
         new URLSearchParams({
@@ -2978,13 +1967,10 @@ app.get(
             "MLM",
 
           q:
-            query,
+            parsed.product_query,
 
           limit:
-            String(limit),
-
-          offset:
-            String(offset)
+            String(limit)
 
         });
 
@@ -3000,15 +1986,16 @@ app.get(
         [];
 
 
-      // =================================================
-      // 2. NORMALIZAR PRODUCTOS
-      // =================================================
+      // -----------------------------------------------
+      // 3. NORMALIZAR
+      // -----------------------------------------------
 
       const normalized =
         products.map(
-          (product) => {
+          product => {
 
             const attributes = {};
+
 
             if (
               Array.isArray(
@@ -3081,10 +2068,6 @@ app.get(
                 attributes.COLOR ||
                 null,
 
-              condition:
-                attributes.CONDITION ||
-                null,
-
               gtin:
                 attributes.GTIN ||
                 null,
@@ -3097,12 +2080,12 @@ app.get(
         );
 
 
-      // =================================================
-      // 3. RELEVANCIA
-      // =================================================
+      // -----------------------------------------------
+      // 4. RELEVANCIA
+      // -----------------------------------------------
 
       const queryWords =
-        query
+        parsed.product_query
           .toLowerCase()
           .split(/\s+/)
           .filter(
@@ -3114,7 +2097,7 @@ app.get(
       const ranked =
         normalized
           .map(
-            (product) => {
+            product => {
 
               const text =
                 [
@@ -3141,10 +2124,6 @@ app.get(
                 0;
 
 
-              // -----------------------------------------
-              // Coincidencia por palabra
-              // -----------------------------------------
-
               for (
                 const word
                 of queryWords
@@ -3161,34 +2140,14 @@ app.get(
               }
 
 
-              // -----------------------------------------
-              // Coincidencia exacta de modelo
-              // -----------------------------------------
-
-              if (
-                product.model &&
-                query
-                  .toLowerCase()
-                  .includes(
-                    product.model.toLowerCase()
-                  )
-              ) {
-
-                score += 2;
-
-              }
-
-
-              // -----------------------------------------
-              // Coincidencia de marca
-              // -----------------------------------------
-
+              // Marca
               if (
                 product.brand &&
-                query
+                parsed.product_query
                   .toLowerCase()
                   .includes(
-                    product.brand.toLowerCase()
+                    product.brand
+                      .toLowerCase()
                   )
               ) {
 
@@ -3197,44 +2156,18 @@ app.get(
               }
 
 
-              // -----------------------------------------
-              // Condición buscada
-              // -----------------------------------------
-
-              const queryLower =
-                query.toLowerCase();
-
-
+              // Modelo
               if (
-                queryLower.includes("usado") ||
-                queryLower.includes("usada")
+                product.model &&
+                parsed.product_query
+                  .toLowerCase()
+                  .includes(
+                    product.model
+                      .toLowerCase()
+                  )
               ) {
 
-                if (
-                  product.condition ===
-                  "used"
-                ) {
-
-                  score += 2;
-
-                }
-
-              }
-
-
-              if (
-                queryLower.includes("reacondicionado") ||
-                queryLower.includes("reacondicionada")
-              ) {
-
-                if (
-                  product.condition ===
-                  "refurbished"
-                ) {
-
-                  score += 2;
-
-                }
+                score += 2;
 
               }
 
@@ -3257,20 +2190,27 @@ app.get(
           );
 
 
-      // =================================================
-      // 4. RESPUESTA
-      // =================================================
+      // -----------------------------------------------
+      // 5. RESPUESTA
+      // -----------------------------------------------
 
       res.json({
 
         success:
           true,
 
-        query,
+        raw_query:
+          parsed.raw_query,
+
+        product_query:
+          parsed.product_query,
+
+        requested_condition:
+          parsed.condition,
 
         search_total:
           data.paging?.total ||
-          products.length,
+          0,
 
         products_found:
           products.length,
@@ -3284,7 +2224,7 @@ app.get(
     } catch (error) {
 
       console.error(
-        "Trend → Product error:",
+        "Trend → Product V2 error:",
         error
       );
 
@@ -3310,199 +2250,7 @@ app.get(
 
   }
 );
-// =====================================================
-// FINDR - TREND INTELLIGENCE V2
-// =====================================================
 
-function parseTrendQuery(rawQuery) {
-
-  const original =
-    String(rawQuery || "")
-      .trim();
-
-  const normalized =
-    original
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^\w\s-]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-  let condition = null;
-
-  let productQuery =
-    normalized;
-
-  // -----------------------------------------------
-  // CONDICIÓN: USED
-  // -----------------------------------------------
-
-  const usedPatterns = [
-    "usado",
-    "usada",
-    "usados",
-    "usadas",
-    "segunda mano",
-    "segunda-mano",
-    "seminuevo",
-    "seminueva",
-    "seminuevos",
-    "seminuevas"
-  ];
-
-  for (const pattern of usedPatterns) {
-
-    if (
-      productQuery.includes(pattern)
-    ) {
-
-      condition = "used";
-
-      productQuery =
-        productQuery
-          .replace(
-            pattern,
-            " "
-          );
-
-      break;
-
-    }
-
-  }
-
-  // -----------------------------------------------
-  // CONDICIÓN: REFURBISHED
-  // -----------------------------------------------
-
-  const refurbishedPatterns = [
-    "reacondicionado",
-    "reacondicionada",
-    "reacondicionados",
-    "reacondicionadas",
-    "refurbished"
-  ];
-
-  if (!condition) {
-
-    for (
-      const pattern
-      of refurbishedPatterns
-    ) {
-
-      if (
-        productQuery.includes(
-          pattern
-        )
-      ) {
-
-        condition =
-          "refurbished";
-
-        productQuery =
-          productQuery
-            .replace(
-              pattern,
-              " "
-            );
-
-        break;
-
-      }
-
-    }
-
-  }
-
-  // -----------------------------------------------
-  // LIMPIEZA FINAL
-  // -----------------------------------------------
-
-  productQuery =
-    productQuery
-      .replace(/\s+/g, " ")
-      .trim();
-
-  return {
-
-    raw_query:
-      original,
-
-    product_query:
-      productQuery,
-
-    condition,
-
-    parser_version:
-      "v2"
-
-  };
-
-}
-
-
-// =====================================================
-// TEST TREND INTELLIGENCE
-// =====================================================
-
-app.get(
-  "/trend-intelligence",
-  async (req, res) => {
-
-    try {
-
-      const query =
-        req.query.q;
-
-      if (!query) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          error:
-            "Debes proporcionar q."
-
-        });
-
-      }
-
-      const parsed =
-        parseTrendQuery(
-          query
-        );
-
-      res.json({
-
-        success:
-          true,
-
-        ...parsed
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Trend Intelligence error:",
-        error
-      );
-
-      res.status(500).json({
-
-        success:
-          false,
-
-        error:
-          error.message
-
-      });
-
-    }
-
-  }
-);
 
 // =====================================================
 // SERVIDOR
@@ -3513,7 +2261,7 @@ app.listen(
   () => {
 
     console.log(
-      `FINDR Bot escuchando en puerto ${PORT}`
+      `FINDR Bot listening on port ${PORT}`
     );
 
   }
