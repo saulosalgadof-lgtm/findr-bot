@@ -2132,6 +2132,139 @@ app.get(
     }
   }
 );
+// =====================================================
+// MARKETPLACE SEARCH PUBLIC TEST
+// =====================================================
+
+app.get(
+  "/marketplace-search-public",
+  async (req, res) => {
+
+    try {
+
+      const query =
+        req.query.q;
+
+      if (!query) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar q."
+
+        });
+
+      }
+
+      const params =
+        new URLSearchParams({
+
+          q:
+            query,
+
+          limit:
+            String(
+              Math.min(
+                Number(req.query.limit) || 20,
+                50
+              )
+            )
+
+        });
+
+      const url =
+        `https://api.mercadolibre.com/sites/MLM/search?${params.toString()}`;
+
+      console.log(
+        "PUBLIC MARKETPLACE SEARCH:",
+        url
+      );
+
+      const response =
+        await fetch(url, {
+
+          headers: {
+
+            accept:
+              "application/json"
+
+          }
+
+        });
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+
+        return res.status(
+          response.status
+        ).json({
+
+          success:
+            false,
+
+          status:
+            response.status,
+
+          endpoint:
+            `/sites/MLM/search?${params.toString()}`,
+
+          error:
+            data
+
+        });
+
+      }
+
+      res.json({
+
+        success:
+          true,
+
+        query,
+
+        total:
+          data.paging?.total ||
+          0,
+
+        available_sorts:
+          data.available_sorts ||
+          [],
+
+        available_filters:
+          data.available_filters ||
+          [],
+
+        results:
+          data.results ||
+          []
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Public marketplace search error:",
+        error
+      );
+
+      res.status(500).json({
+
+        success:
+          false,
+
+        error:
+          error.message
+
+      });
+
+    }
+
+  }
+);
 
 
 // =====================================================
