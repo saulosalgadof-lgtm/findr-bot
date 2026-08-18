@@ -3816,6 +3816,356 @@ app.get(
   }
 );
 // =====================================================
+// PRODUCT OPPORTUNITY
+// =====================================================
+//
+// Analiza un producto de catálogo y sus publicaciones
+// reales para preparar la información de oportunidad.
+//
+// Flujo:
+//
+// PRODUCT
+//   ↓
+// LISTINGS
+//   ↓
+// MARKET ANALYSIS
+//
+// =====================================================
+
+app.get(
+  "/product-opportunity",
+  async (req, res) => {
+
+    try {
+
+      const productId =
+        req.query.product_id;
+
+      if (!productId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar product_id."
+
+        });
+
+      }
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR PRODUCT OPPORTUNITY"
+      );
+
+      console.log(
+        "Product ID:",
+        productId
+      );
+
+      console.log(
+        "======================================"
+      );
+
+
+      // -----------------------------------------------
+      // 1. PRODUCT DETAIL
+      // -----------------------------------------------
+
+      const product =
+        await mercadoLibreRequest(
+          `/products/${encodeURIComponent(
+            productId
+          )}`
+        );
+
+
+      // -----------------------------------------------
+      // 2. PRODUCT LISTINGS
+      // -----------------------------------------------
+
+      const params =
+        new URLSearchParams({
+
+          limit:
+            "100",
+
+          offset:
+            "0"
+
+        });
+
+      const listingsData =
+        await mercadoLibreRequest(
+          `/products/${encodeURIComponent(
+            productId
+          )}/items?${params.toString()}`
+        );
+
+      const listings =
+        Array.isArray(
+          listingsData.results
+        )
+          ? listingsData.results
+          : [];
+
+
+      // -----------------------------------------------
+      // 3. NORMALIZAR LISTINGS
+      // -----------------------------------------------
+
+      const normalizedListings =
+        listings.map(
+          listing => {
+
+            return {
+
+              item_id:
+                listing.item_id ||
+                null,
+
+              seller_id:
+                listing.seller_id ||
+                null,
+
+              price:
+                Number(
+                  listing.price
+                ) || 0,
+
+              currency_id:
+                listing.currency_id ||
+                null,
+
+              condition:
+                listing.condition ||
+                null,
+
+              listing_type_id:
+                listing.listing_type_id ||
+                null,
+
+              official_store_id:
+                listing.official_store_id ||
+                null,
+
+              warranty:
+                listing.warranty ||
+                null,
+
+              shipping:
+                listing.shipping ||
+                null,
+
+              tags:
+                listing.tags ||
+                []
+
+            };
+
+          }
+        );
+
+
+      // -----------------------------------------------
+      // 4. MARKET METRICS
+      // -----------------------------------------------
+
+      const prices =
+        normalizedListings
+          .map(
+            listing =>
+              listing.price
+          )
+          .filter(
+            price =>
+              price > 0
+          );
+
+
+      const sellers =
+        [
+          ...new Set(
+            normalizedListings
+              .map(
+                listing =>
+                  listing.seller_id
+              )
+              .filter(Boolean)
+          )
+        ];
+
+
+      const lowestPrice =
+        prices.length
+          ? Math.min(
+              ...prices
+            )
+          : null;
+
+
+      const highestPrice =
+        prices.length
+          ? Math.max(
+              ...prices
+            )
+          : null;
+
+
+      const averagePrice =
+        prices.length
+          ? prices.reduce(
+              (
+                total,
+                price
+              ) =>
+                total + price,
+              0
+            ) / prices.length
+          : null;
+
+
+      const officialStores =
+        normalizedListings.filter(
+          listing =>
+            !!listing.official_store_id
+        ).length;
+
+
+      const newListings =
+        normalizedListings.filter(
+          listing =>
+            listing.condition === "new"
+        ).length;
+
+
+      const usedListings =
+        normalizedListings.filter(
+          listing =>
+            listing.condition === "used"
+        ).length;
+
+
+      // -----------------------------------------------
+      // 5. PRODUCT INFORMATION
+      // -----------------------------------------------
+
+      const productInfo = {
+
+        product_id:
+          product.id ||
+          null,
+
+        name:
+          product.name ||
+          null,
+
+        family_name:
+          product.family_name ||
+          null,
+
+        domain_id:
+          product.domain_id ||
+          null,
+
+        status:
+          product.status ||
+          null,
+
+        sold_quantity:
+          product.sold_quantity ||
+          0,
+
+        permalink:
+          product.permalink ||
+          null
+
+      };
+
+
+      // -----------------------------------------------
+      // 6. RESPONSE
+      // -----------------------------------------------
+
+      res.json({
+
+        success:
+          true,
+
+        product:
+          productInfo,
+
+        market: {
+
+          listings:
+            normalizedListings.length,
+
+          sellers:
+            sellers.length,
+
+          lowest_price:
+            lowestPrice,
+
+          highest_price:
+            highestPrice,
+
+          average_price:
+            averagePrice,
+
+          official_store_listings:
+            officialStores,
+
+          new_listings:
+            newListings,
+
+          used_listings:
+            usedListings
+
+        },
+
+        listings:
+          normalizedListings
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "Product opportunity error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        product_id:
+          req.query.product_id ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
+// =====================================================
 // SERVIDOR
 // =====================================================
 
