@@ -2997,7 +2997,375 @@ app.get(
 
   }
 );
+// =====================================================
+// FINDR OPPORTUNITY ENGINE V1
+// =====================================================
 
+function clampScore(value) {
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      Number(value) || 0
+    )
+  );
+}
+
+
+// -----------------------------------------------------
+// DEMANDA
+// -----------------------------------------------------
+
+function calculateDemandScore({
+  trendRank = null,
+  soldQuantity = 0,
+  searchTotal = 0
+}) {
+
+  let score = 0;
+
+  // Tendencia
+  if (trendRank !== null) {
+
+    if (trendRank <= 10) score += 50;
+    else if (trendRank <= 25) score += 40;
+    else if (trendRank <= 50) score += 30;
+    else if (trendRank <= 100) score += 20;
+    else score += 10;
+
+  }
+
+  // Ventas
+  if (soldQuantity >= 1000) score += 50;
+  else if (soldQuantity >= 500) score += 45;
+  else if (soldQuantity >= 250) score += 40;
+  else if (soldQuantity >= 100) score += 30;
+  else if (soldQuantity >= 50) score += 20;
+  else if (soldQuantity > 0) score += 10;
+
+  return clampScore(score);
+}
+
+
+// -----------------------------------------------------
+// COMPETENCIA
+// -----------------------------------------------------
+
+function calculateCompetitionScore({
+  sellers = 0,
+  buyBoxWinner = false
+}) {
+
+  let score = 100;
+
+  if (sellers >= 100) score -= 60;
+  else if (sellers >= 50) score -= 45;
+  else if (sellers >= 25) score -= 30;
+  else if (sellers >= 10) score -= 15;
+  else if (sellers >= 5) score -= 5;
+
+  // Si ya existe Buy Box muy consolidada
+  if (buyBoxWinner) {
+    score -= 10;
+  }
+
+  return clampScore(score);
+}
+
+
+// -----------------------------------------------------
+// MARGEN
+// -----------------------------------------------------
+
+function calculateMarginScore({
+  sellingPrice = 0,
+  acquisitionCost = 0
+}) {
+
+  if (
+    !sellingPrice ||
+    !acquisitionCost ||
+    acquisitionCost >= sellingPrice
+  ) {
+    return 0;
+  }
+
+  const margin =
+    (
+      (sellingPrice - acquisitionCost)
+      / sellingPrice
+    ) * 100;
+
+  if (margin >= 40) return 100;
+  if (margin >= 30) return 90;
+  if (margin >= 25) return 80;
+  if (margin >= 20) return 70;
+  if (margin >= 15) return 55;
+  if (margin >= 10) return 40;
+  if (margin >= 5) return 20;
+
+  return 0;
+}
+
+
+// -----------------------------------------------------
+// PRECIO
+// -----------------------------------------------------
+
+function calculatePriceScore({
+  marketPrice = 0,
+  sellingPrice = 0
+}) {
+
+  if (
+    !marketPrice ||
+    !sellingPrice
+  ) {
+    return 50;
+  }
+
+  const difference =
+    (
+      (marketPrice - sellingPrice)
+      / marketPrice
+    ) * 100;
+
+  if (difference >= 20) return 100;
+  if (difference >= 15) return 90;
+  if (difference >= 10) return 80;
+  if (difference >= 5) return 70;
+  if (difference >= 0) return 60;
+  if (difference >= -5) return 45;
+  if (difference >= -10) return 30;
+
+  return 15;
+}
+
+
+// -----------------------------------------------------
+// VENTAS
+// -----------------------------------------------------
+
+function calculateSalesScore({
+  soldQuantity = 0,
+  availableQuantity = 0
+}) {
+
+  const total =
+    soldQuantity +
+    availableQuantity;
+
+  if (!total) return 0;
+
+  const sellThrough =
+    soldQuantity / total;
+
+  if (sellThrough >= 0.80) return 100;
+  if (sellThrough >= 0.65) return 85;
+  if (sellThrough >= 0.50) return 70;
+  if (sellThrough >= 0.35) return 55;
+  if (sellThrough >= 0.20) return 40;
+
+  return 20;
+}
+
+
+// -----------------------------------------------------
+// RIESGO
+// -----------------------------------------------------
+
+function calculateRiskScore({
+  condition = null,
+  sellers = 0,
+  catalogListing = false
+}) {
+
+  let score = 100;
+
+  if (condition === "used") {
+    score -= 10;
+  }
+
+  if (sellers >= 100) {
+    score -= 25;
+  }
+
+  if (catalogListing) {
+    score += 5;
+  }
+
+  return clampScore(score);
+}
+
+
+// -----------------------------------------------------
+// FINDR SCORE
+// -----------------------------------------------------
+
+function calculateFindrScore(data) {
+
+  const demand =
+    calculateDemandScore(data);
+
+  const competition =
+    calculateCompetitionScore(data);
+
+  const margin =
+    calculateMarginScore(data);
+
+  const price =
+    calculatePriceScore(data);
+
+  const sales =
+    calculateSalesScore(data);
+
+  const risk =
+    calculateRiskScore(data);
+
+  const score =
+    (
+      demand * 0.25 +
+      competition * 0.20 +
+      margin * 0.20 +
+      price * 0.15 +
+      sales * 0.10 +
+      risk * 0.10
+    );
+
+  const finalScore =
+    Math.round(score);
+
+  let verdict;
+
+  if (finalScore >= 80) {
+    verdict = "STRONG_OPPORTUNITY";
+  }
+  else if (finalScore >= 65) {
+    verdict = "OPPORTUNITY";
+  }
+  else if (finalScore >= 50) {
+    verdict = "WATCH";
+  }
+  else {
+    verdict = "DISCARD";
+  }
+
+  return {
+
+    score:
+      finalScore,
+
+    verdict,
+
+    components: {
+
+      demand:
+        Math.round(demand),
+
+      competition:
+        Math.round(competition),
+
+      margin:
+        Math.round(margin),
+
+      price:
+        Math.round(price),
+
+      sales:
+        Math.round(sales),
+
+      risk:
+        Math.round(risk)
+
+    }
+
+  };
+}
+// =====================================================
+// FINDR SCORE TEST
+// =====================================================
+
+app.get(
+  "/findr-score-test",
+  async (req, res) => {
+
+    try {
+
+      const data = {
+
+        trendRank:
+          Number(req.query.trend_rank) || 20,
+
+        soldQuantity:
+          Number(req.query.sold) || 500,
+
+        searchTotal:
+          Number(req.query.search_total) || 1000,
+
+        sellers:
+          Number(req.query.sellers) || 10,
+
+        buyBoxWinner:
+          req.query.buy_box === "true",
+
+        sellingPrice:
+          Number(req.query.price) || 10000,
+
+        acquisitionCost:
+          Number(req.query.cost) || 7000,
+
+        marketPrice:
+          Number(req.query.market_price) || 10000,
+
+        availableQuantity:
+          Number(req.query.available) || 100,
+
+        condition:
+          req.query.condition || "new",
+
+        catalogListing:
+          req.query.catalog === "true"
+
+      };
+
+
+      const result =
+        calculateFindrScore(data);
+
+
+      res.json({
+
+        success:
+          true,
+
+        input:
+          data,
+
+        findr:
+          result
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "FINDR Score Test error:",
+        error
+      );
+
+      res.status(500).json({
+
+        success:
+          false,
+
+        error:
+          error.message
+
+      });
+
+    }
+  }
+);
 // =====================================================
 // SERVIDOR
 // =====================================================
