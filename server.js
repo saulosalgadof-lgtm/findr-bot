@@ -667,6 +667,10 @@ app.get(
 
       `&redirect_uri=${encodeURIComponent(
         MERCADOLIBRE_REDIRECT_URI
+      )}` +
+
+      `&scope=${encodeURIComponent(
+        "offline_access read"
       )}`;
 
     res.redirect(
@@ -674,7 +678,6 @@ app.get(
     );
   }
 );
-
 
 // =====================================================
 // OAUTH - CALLBACK
