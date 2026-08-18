@@ -5,6 +5,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+
 // =====================================================
 // CONFIGURACIÓN
 // =====================================================
@@ -23,6 +24,8 @@ const MERCADOLIBRE_CLIENT_SECRET =
 
 const MERCADOLIBRE_REDIRECT_URI =
   process.env.MERCADOLIBRE_REDIRECT_URI;
+
+const SITE_ID = "MLM";
 
 
 // =====================================================
@@ -57,6 +60,8 @@ console.log(
   "MERCADOLIBRE_REDIRECT_URI:",
   MERCADOLIBRE_REDIRECT_URI ? "OK" : "MISSING"
 );
+
+console.log("SITE_ID:", SITE_ID);
 
 console.log("======================================");
 
@@ -404,7 +409,8 @@ async function getValidMercadoLibreAccount() {
 // =====================================================
 
 async function mercadoLibreRequest(
-  endpoint
+  endpoint,
+  options = {}
 ) {
 
   let account =
@@ -419,30 +425,39 @@ async function mercadoLibreRequest(
     await fetch(
       `https://api.mercadolibre.com${endpoint}`,
       {
+        ...options,
+
         headers: {
 
           Authorization:
             `Bearer ${account.access_token}`,
 
           accept:
-            "application/json"
+            "application/json",
 
+          ...(options.headers || {})
         }
       }
     );
 
   let data;
 
+  const text =
+    await response.text();
+
   try {
 
     data =
-      await response.json();
+      text
+        ? JSON.parse(text)
+        : null;
 
   } catch {
 
-    data = null;
+    data = text;
 
   }
+
 
   // -----------------------------------------------
   // TOKEN EXPIRADO
@@ -465,26 +480,35 @@ async function mercadoLibreRequest(
       await fetch(
         `https://api.mercadolibre.com${endpoint}`,
         {
+          ...options,
+
           headers: {
 
             Authorization:
               `Bearer ${account.access_token}`,
 
             accept:
-              "application/json"
+              "application/json",
 
+            ...(options.headers || {})
           }
         }
       );
 
+    const retryText =
+      await response.text();
+
     try {
 
       data =
-        await response.json();
+        retryText
+          ? JSON.parse(retryText)
+          : null;
 
     } catch {
 
-      data = null;
+      data =
+        retryText;
 
     }
   }
@@ -548,17 +572,19 @@ app.get(
 
         <hr>
 
+        <h3>Diagnóstico</h3>
+
+        <p>
+          <a href="/ml-diagnostic">
+            Diagnóstico Mercado Libre
+          </a>
+        </p>
+
         <h3>FINDR</h3>
 
         <p>
           <a href="/test-ml">
             Test Mercado Libre
-          </a>
-        </p>
-
-        <p>
-          <a href="/ml-diagnostic">
-            Diagnóstico Mercado Libre
           </a>
         </p>
 
@@ -587,8 +613,8 @@ app.get(
         </p>
 
         <p>
-          <a href="/marketplace-search-public?q=iphone%2011">
-            Marketplace Search
+          <a href="/products-search?q=iphone%2011">
+            Product Search
           </a>
         </p>
 
@@ -642,10 +668,6 @@ app.get(
       `&redirect_uri=${encodeURIComponent(
         MERCADOLIBRE_REDIRECT_URI
       )}`;
-
-    console.log(
-      "Redirecting to Mercado Libre OAuth"
-    );
 
     res.redirect(
       authorizationUrl
@@ -1136,7 +1158,7 @@ app.get(
             "active",
 
           site_id:
-            "MLM",
+            SITE_ID,
 
           q:
             query,
@@ -1164,6 +1186,10 @@ app.get(
         total_results:
           data.paging?.total ||
           0,
+
+        paging:
+          data.paging ||
+          null,
 
         results:
           data.results ||
@@ -1558,7 +1584,7 @@ app.get(
 
       const data =
         await mercadoLibreRequest(
-          "/trends/MLM"
+          `/trends/${SITE_ID}`
         );
 
       const trends =
@@ -1572,7 +1598,7 @@ app.get(
           true,
 
         site_id:
-          "MLM",
+          SITE_ID,
 
         total:
           trends.length,
@@ -1837,7 +1863,7 @@ async function discoverDomain(
 
   const data =
     await mercadoLibreRequest(
-      `/sites/MLM/domain_discovery/search?${params.toString()}`
+      `/sites/${SITE_ID}/domain_discovery/search?${params.toString()}`
     );
 
   const results =
@@ -2010,7 +2036,7 @@ app.get(
             "active",
 
           site_id:
-            "MLM",
+            SITE_ID,
 
           q:
             parsed.product_query,
@@ -2124,7 +2150,7 @@ app.get(
 
 
       // -----------------------------------------------
-      // 5. RESPUESTA
+      // 5. RESPONSE
       // -----------------------------------------------
 
       res.json({
@@ -2198,7 +2224,17 @@ app.get(
 
 
 // =====================================================
-// MARKETPLACE SEARCH - AUTENTICADO
+// MARKETPLACE SEARCH
+// =====================================================
+//
+// NOTA:
+// /sites/MLM/search está devolviendo 403 para nuestra
+// aplicación. NO lo utilizamos en la arquitectura actual.
+//
+// La búsqueda de catálogo se hace mediante:
+//
+// /products/search
+//
 // =====================================================
 
 app.get(
@@ -2239,8 +2275,15 @@ app.get(
           0
         );
 
+
       const params =
         new URLSearchParams({
+
+          status:
+            "active",
+
+          site_id:
+            SITE_ID,
 
           q:
             query,
@@ -2253,35 +2296,10 @@ app.get(
 
         });
 
-      const endpoint =
-        `/sites/MLM/search?${params.toString()}`;
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "FINDR MARKETPLACE SEARCH"
-      );
-
-      console.log(
-        "Query:",
-        query
-      );
-
-      console.log(
-        "Endpoint:",
-        endpoint
-      );
-
-      console.log(
-        "======================================"
-      );
-
 
       const data =
         await mercadoLibreRequest(
-          endpoint
+          `/products/search?${params.toString()}`
         );
 
 
@@ -2290,19 +2308,18 @@ app.get(
         success:
           true,
 
+        mode:
+          "catalog_product_search",
+
         query,
 
         total:
           data.paging?.total ||
           0,
 
-        available_sorts:
-          data.available_sorts ||
-          [],
-
-        available_filters:
-          data.available_filters ||
-          [],
+        paging:
+          data.paging ||
+          null,
 
         results:
           data.results ||
@@ -2375,72 +2392,17 @@ app.get(
           user.id,
 
         nickname:
-          user.nickname
+          user.nickname,
+
+        country:
+          user.country_id ||
+          null
 
       };
 
     } catch (error) {
 
       results.user = {
-
-        success:
-          false,
-
-        status:
-          error.status || null,
-
-        error:
-          error.data ||
-          error.message
-
-      };
-
-    }
-
-
-    // -----------------------------------------------
-    // 2. MARKETPLACE SEARCH
-    // -----------------------------------------------
-
-    try {
-
-      const params =
-        new URLSearchParams({
-
-          q:
-            "iphone 11",
-
-          limit:
-            "3"
-
-        });
-
-      const search =
-        await mercadoLibreRequest(
-          `/sites/MLM/search?${params.toString()}`
-        );
-
-      results.marketplace_search = {
-
-        success:
-          true,
-
-        status:
-          200,
-
-        total:
-          search.paging?.total ||
-          0,
-
-        results:
-          search.results?.length ||
-          0
-
-      };
-
-    } catch (error) {
-
-      results.marketplace_search = {
 
         success:
           false,
@@ -2459,7 +2421,7 @@ app.get(
 
 
     // -----------------------------------------------
-    // 3. PRODUCT SEARCH
+    // 2. PRODUCT SEARCH
     // -----------------------------------------------
 
     try {
@@ -2471,7 +2433,7 @@ app.get(
             "active",
 
           site_id:
-            "MLM",
+            SITE_ID,
 
           q:
             "iphone 11",
@@ -2507,6 +2469,133 @@ app.get(
     } catch (error) {
 
       results.product_search = {
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      };
+
+    }
+
+
+    // -----------------------------------------------
+    // 3. DOMAIN DISCOVERY
+    // -----------------------------------------------
+
+    try {
+
+      const params =
+        new URLSearchParams({
+
+          q:
+            "iphone 11",
+
+          limit:
+            "3"
+
+        });
+
+      const domains =
+        await mercadoLibreRequest(
+          `/sites/${SITE_ID}/domain_discovery/search?${params.toString()}`
+        );
+
+      results.domain_discovery = {
+
+        success:
+          true,
+
+        status:
+          200,
+
+        results:
+          Array.isArray(domains)
+            ? domains.length
+            : 0,
+
+        first_domain:
+          Array.isArray(domains) &&
+          domains.length
+            ? domains[0].domain_id
+            : null
+
+      };
+
+    } catch (error) {
+
+      results.domain_discovery = {
+
+        success:
+          false,
+
+        status:
+          error.status ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      };
+
+    }
+
+
+    // -----------------------------------------------
+    // 4. MARKETPLACE SEARCH
+    // -----------------------------------------------
+    //
+    // Se conserva únicamente como diagnóstico.
+    // NO forma parte de FINDR.
+    //
+
+    try {
+
+      const params =
+        new URLSearchParams({
+
+          q:
+            "iphone 11",
+
+          limit:
+            "3"
+
+        });
+
+      const search =
+        await mercadoLibreRequest(
+          `/sites/${SITE_ID}/search?${params.toString()}`
+        );
+
+      results.marketplace_search = {
+
+        success:
+          true,
+
+        status:
+          200,
+
+        total:
+          search.paging?.total ||
+          0,
+
+        results:
+          search.results?.length ||
+          0
+
+      };
+
+    } catch (error) {
+
+      results.marketplace_search = {
 
         success:
           false,
