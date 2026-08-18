@@ -3310,6 +3310,199 @@ app.get(
 
   }
 );
+// =====================================================
+// FINDR - TREND INTELLIGENCE V2
+// =====================================================
+
+function parseTrendQuery(rawQuery) {
+
+  const original =
+    String(rawQuery || "")
+      .trim();
+
+  const normalized =
+    original
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\w\s-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  let condition = null;
+
+  let productQuery =
+    normalized;
+
+  // -----------------------------------------------
+  // CONDICIÓN: USED
+  // -----------------------------------------------
+
+  const usedPatterns = [
+    "usado",
+    "usada",
+    "usados",
+    "usadas",
+    "segunda mano",
+    "segunda-mano",
+    "seminuevo",
+    "seminueva",
+    "seminuevos",
+    "seminuevas"
+  ];
+
+  for (const pattern of usedPatterns) {
+
+    if (
+      productQuery.includes(pattern)
+    ) {
+
+      condition = "used";
+
+      productQuery =
+        productQuery
+          .replace(
+            pattern,
+            " "
+          );
+
+      break;
+
+    }
+
+  }
+
+  // -----------------------------------------------
+  // CONDICIÓN: REFURBISHED
+  // -----------------------------------------------
+
+  const refurbishedPatterns = [
+    "reacondicionado",
+    "reacondicionada",
+    "reacondicionados",
+    "reacondicionadas",
+    "refurbished"
+  ];
+
+  if (!condition) {
+
+    for (
+      const pattern
+      of refurbishedPatterns
+    ) {
+
+      if (
+        productQuery.includes(
+          pattern
+        )
+      ) {
+
+        condition =
+          "refurbished";
+
+        productQuery =
+          productQuery
+            .replace(
+              pattern,
+              " "
+            );
+
+        break;
+
+      }
+
+    }
+
+  }
+
+  // -----------------------------------------------
+  // LIMPIEZA FINAL
+  // -----------------------------------------------
+
+  productQuery =
+    productQuery
+      .replace(/\s+/g, " ")
+      .trim();
+
+  return {
+
+    raw_query:
+      original,
+
+    product_query:
+      productQuery,
+
+    condition,
+
+    parser_version:
+      "v2"
+
+  };
+
+}
+
+
+// =====================================================
+// TEST TREND INTELLIGENCE
+// =====================================================
+
+app.get(
+  "/trend-intelligence",
+  async (req, res) => {
+
+    try {
+
+      const query =
+        req.query.q;
+
+      if (!query) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar q."
+
+        });
+
+      }
+
+      const parsed =
+        parseTrendQuery(
+          query
+        );
+
+      res.json({
+
+        success:
+          true,
+
+        ...parsed
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Trend Intelligence error:",
+        error
+      );
+
+      res.status(500).json({
+
+        success:
+          false,
+
+        error:
+          error.message
+
+      });
+
+    }
+
+  }
+);
 
 // =====================================================
 // SERVIDOR
