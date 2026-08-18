@@ -2633,7 +2633,151 @@ app.get(
   }
 );
 
+// =====================================================
+// PRODUCT LISTINGS / COMPETENCIA
+// =====================================================
+//
+// Obtiene las publicaciones de distintos vendedores
+// asociadas a un producto de catálogo.
+//
+// Endpoint Mercado Libre:
+// /products/{PRODUCT_ID}/items
+//
+// =====================================================
 
+app.get(
+  "/product-listings",
+  async (req, res) => {
+
+    try {
+
+      const productId =
+        req.query.product_id;
+
+      if (!productId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar product_id."
+
+        });
+
+      }
+
+      const limit =
+        Math.min(
+          Number(req.query.limit) || 20,
+          100
+        );
+
+      const offset =
+        Math.max(
+          Number(req.query.offset) || 0,
+          0
+        );
+
+      const params =
+        new URLSearchParams({
+
+          limit:
+            String(limit),
+
+          offset:
+            String(offset)
+
+        });
+
+      const endpoint =
+        `/products/${encodeURIComponent(
+          productId
+        )}/items?${params.toString()}`;
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR PRODUCT LISTINGS"
+      );
+
+      console.log(
+        "Product ID:",
+        productId
+      );
+
+      console.log(
+        "Endpoint:",
+        endpoint
+      );
+
+      console.log(
+        "======================================"
+      );
+
+      const data =
+        await mercadoLibreRequest(
+          endpoint
+        );
+
+      res.json({
+
+        success: true,
+
+        product_id:
+          productId,
+
+        total:
+          data.paging?.total ||
+          0,
+
+        limit,
+
+        offset,
+
+        results:
+          data.results ||
+          [],
+
+        experiments:
+          data.experiments ||
+          null
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Product listings error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success: false,
+
+        status:
+          error.status ||
+          null,
+
+        product_id:
+          req.query.product_id ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
 // =====================================================
 // SERVIDOR
 // =====================================================
