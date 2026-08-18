@@ -1,7 +1,6 @@
 import express from "express";
 
 const app = express();
-
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
@@ -28,20 +27,12 @@ const MERCADOLIBRE_REDIRECT_URI =
 
 
 // =====================================================
-// INICIO
+// STARTUP
 // =====================================================
 
-console.log(
-  "======================================"
-);
-
-console.log(
-  "FINDR BOT - STARTING"
-);
-
-console.log(
-  "======================================"
-);
+console.log("======================================");
+console.log("FINDR BOT - STARTING");
+console.log("======================================");
 
 console.log(
   "SUPABASE_URL:",
@@ -68,9 +59,7 @@ console.log(
   MERCADOLIBRE_REDIRECT_URI ? "OK" : "MISSING"
 );
 
-console.log(
-  "======================================"
-);
+console.log("======================================");
 
 
 // =====================================================
@@ -82,30 +71,24 @@ async function supabaseRequest(
   options = {}
 ) {
 
-  const response =
-    await fetch(
-      `${SUPABASE_URL}/rest/v1/${endpoint}`,
-      {
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/${endpoint}`,
+    {
+      ...options,
 
-        ...options,
+      headers: {
+        apikey: SUPABASE_SECRET_KEY,
 
-        headers: {
+        Authorization:
+          `Bearer ${SUPABASE_SECRET_KEY}`,
 
-          apikey:
-            SUPABASE_SECRET_KEY,
+        "Content-Type":
+          "application/json",
 
-          Authorization:
-            `Bearer ${SUPABASE_SECRET_KEY}`,
-
-          "Content-Type":
-            "application/json",
-
-          ...(options.headers || {})
-
-        }
-
+        ...(options.headers || {})
       }
-    );
+    }
+  );
 
   const text =
     await response.text();
@@ -113,17 +96,12 @@ async function supabaseRequest(
   let data;
 
   try {
-
     data =
       text
         ? JSON.parse(text)
         : null;
-
   } catch {
-
-    data =
-      text;
-
+    data = text;
   }
 
   if (!response.ok) {
@@ -140,7 +118,6 @@ async function supabaseRequest(
       data;
 
     throw error;
-
   }
 
   return data;
@@ -160,7 +137,6 @@ async function saveMercadoLibreAccount(
     throw new Error(
       "Mercado Libre no devolvió user_id."
     );
-
   }
 
   if (!tokenData.access_token) {
@@ -168,7 +144,6 @@ async function saveMercadoLibreAccount(
     throw new Error(
       "Mercado Libre no devolvió access_token."
     );
-
   }
 
   const userId =
@@ -212,7 +187,6 @@ async function saveMercadoLibreAccount(
 
     expires_at:
       expiresAt
-
   };
 
   if (currentAccount) {
@@ -220,22 +194,17 @@ async function saveMercadoLibreAccount(
     await supabaseRequest(
       `mercadolibre_accounts?user_id=eq.${userId}`,
       {
-
-        method:
-          "PATCH",
+        method: "PATCH",
 
         headers: {
-
           Prefer:
             "return=minimal"
-
         },
 
         body:
           JSON.stringify(
             accountData
           )
-
       }
     );
 
@@ -250,22 +219,17 @@ async function saveMercadoLibreAccount(
   await supabaseRequest(
     "mercadolibre_accounts",
     {
-
-      method:
-        "POST",
+      method: "POST",
 
       headers: {
-
         Prefer:
           "return=minimal"
-
       },
 
       body:
         JSON.stringify(
           accountData
         )
-
     }
   );
 
@@ -273,7 +237,6 @@ async function saveMercadoLibreAccount(
     "Mercado Libre account saved:",
     userId
   );
-
 }
 
 
@@ -296,7 +259,6 @@ async function getMercadoLibreAccount() {
     throw new Error(
       "No existe ninguna cuenta de Mercado Libre conectada."
     );
-
   }
 
   return accounts[0];
@@ -316,7 +278,6 @@ async function refreshMercadoLibreToken(
     throw new Error(
       "La cuenta no tiene refresh_token. Hay que volver a autorizar Mercado Libre."
     );
-
   }
 
   console.log(
@@ -327,18 +288,14 @@ async function refreshMercadoLibreToken(
     await fetch(
       "https://api.mercadolibre.com/oauth/token",
       {
-
-        method:
-          "POST",
+        method: "POST",
 
         headers: {
-
           accept:
             "application/json",
 
           "content-type":
             "application/x-www-form-urlencoded"
-
         },
 
         body:
@@ -355,9 +312,7 @@ async function refreshMercadoLibreToken(
 
             refresh_token:
               account.refresh_token
-
           })
-
       }
     );
 
@@ -374,7 +329,6 @@ async function refreshMercadoLibreToken(
     throw new Error(
       `No se pudo refrescar el token: ${JSON.stringify(tokenData)}`
     );
-
   }
 
   await saveMercadoLibreAccount({
@@ -406,9 +360,7 @@ async function refreshMercadoLibreToken(
         (tokenData.expires_in || 0) *
         1000
       ).toISOString()
-
   };
-
 }
 
 
@@ -441,7 +393,6 @@ async function getValidMercadoLibreAccount() {
       await refreshMercadoLibreToken(
         account
       );
-
   }
 
   return account;
@@ -468,7 +419,6 @@ async function mercadoLibreRequest(
     await fetch(
       `https://api.mercadolibre.com${endpoint}`,
       {
-
         headers: {
 
           Authorization:
@@ -476,9 +426,7 @@ async function mercadoLibreRequest(
 
           accept:
             "application/json"
-
         }
-
       }
     );
 
@@ -486,7 +434,7 @@ async function mercadoLibreRequest(
     await response.json();
 
   // -----------------------------------------------
-  // TOKEN EXPIRADO / INVÁLIDO
+  // TOKEN EXPIRADO
   // -----------------------------------------------
 
   if (
@@ -506,7 +454,6 @@ async function mercadoLibreRequest(
       await fetch(
         `https://api.mercadolibre.com${endpoint}`,
         {
-
           headers: {
 
             Authorization:
@@ -514,15 +461,12 @@ async function mercadoLibreRequest(
 
             accept:
               "application/json"
-
           }
-
         }
       );
 
     data =
       await response.json();
-
   }
 
   if (!response.ok) {
@@ -539,7 +483,6 @@ async function mercadoLibreRequest(
       data;
 
     throw error;
-
   }
 
   return data;
@@ -642,9 +585,7 @@ app.get(
         </p>
 
       `);
-
     }
-
   }
 );
 
@@ -673,7 +614,6 @@ app.get(
     res.redirect(
       authorizationUrl
     );
-
   }
 );
 
@@ -709,7 +649,6 @@ app.get(
         </p>
 
       `);
-
     }
 
     if (!code) {
@@ -717,7 +656,6 @@ app.get(
       return res.status(400).send(
         "No se recibió código OAuth."
       );
-
     }
 
     try {
@@ -726,9 +664,7 @@ app.get(
         await fetch(
           "https://api.mercadolibre.com/oauth/token",
           {
-
-            method:
-              "POST",
+            method: "POST",
 
             headers: {
 
@@ -737,7 +673,6 @@ app.get(
 
               "content-type":
                 "application/x-www-form-urlencoded"
-
             },
 
             body:
@@ -756,9 +691,7 @@ app.get(
 
                 redirect_uri:
                   MERCADOLIBRE_REDIRECT_URI
-
               })
-
           }
         );
 
@@ -787,7 +720,6 @@ ${JSON.stringify(
           </pre>
 
         `);
-
       }
 
       await saveMercadoLibreAccount(
@@ -835,9 +767,7 @@ ${error.message}
         </pre>
 
       `);
-
     }
-
   }
 );
 
@@ -878,7 +808,6 @@ app.get(
 
         access_token:
           "valid"
-
       });
 
     } catch (error) {
@@ -898,11 +827,8 @@ app.get(
         error:
           error.data ||
           error.message
-
       });
-
     }
-
   }
 );
 
@@ -935,9 +861,6 @@ app.post(
       "======================================"
     );
 
-    // Respondemos inmediatamente
-    // a Mercado Libre.
-
     res.sendStatus(200);
 
     processMercadoLibreNotification(
@@ -953,7 +876,6 @@ app.post(
 
       }
     );
-
   }
 );
 
@@ -1004,7 +926,6 @@ async function processMercadoLibreNotification(
     );
 
     return;
-
   }
 
   if (!resource) {
@@ -1014,7 +935,6 @@ async function processMercadoLibreNotification(
     );
 
     return;
-
   }
 
   const item =
@@ -1075,7 +995,6 @@ async function processMercadoLibreNotification(
 
     updated_at:
       new Date().toISOString()
-
   };
 
   await supabaseRequest(
@@ -1089,14 +1008,12 @@ async function processMercadoLibreNotification(
 
         Prefer:
           "resolution=merge-duplicates,return=minimal"
-
       },
 
       body:
         JSON.stringify(
           itemData
         )
-
     }
   );
 
@@ -1104,7 +1021,6 @@ async function processMercadoLibreNotification(
     "Item saved:",
     item.id
   );
-
 }
 
 
@@ -1126,9 +1042,7 @@ app.get(
 
       method:
         "POST"
-
     });
-
   }
 );
 
@@ -1154,9 +1068,7 @@ app.get(
 
           error:
             "Debes proporcionar q."
-
         });
-
       }
 
       const limit =
@@ -1188,7 +1100,6 @@ app.get(
 
           offset:
             String(offset)
-
         });
 
       const data =
@@ -1210,7 +1121,6 @@ app.get(
         results:
           data.results ||
           []
-
       });
 
     } catch (error) {
@@ -1234,11 +1144,8 @@ app.get(
         error:
           error.data ||
           error.message
-
       });
-
     }
-
   }
 );
 
@@ -1264,9 +1171,7 @@ app.get(
 
           error:
             "Debes proporcionar product_id."
-
         });
-
       }
 
       const product =
@@ -1282,7 +1187,6 @@ app.get(
           true,
 
         product
-
       });
 
     } catch (error) {
@@ -1310,11 +1214,8 @@ app.get(
         error:
           error.data ||
           error.message
-
       });
-
     }
-
   }
 );
 
@@ -1340,9 +1241,7 @@ app.get(
 
           error:
             "Debes proporcionar product_id."
-
         });
-
       }
 
       const limit =
@@ -1365,7 +1264,6 @@ app.get(
 
           offset:
             String(offset)
-
         });
 
       const data =
@@ -1390,7 +1288,6 @@ app.get(
         results:
           data.results ||
           []
-
       });
 
     } catch (error) {
@@ -1418,11 +1315,8 @@ app.get(
         error:
           error.data ||
           error.message
-
       });
-
     }
-
   }
 );
 
@@ -1448,9 +1342,7 @@ app.get(
 
           error:
             "Debes proporcionar item_id."
-
         });
-
       }
 
       const item =
@@ -1557,9 +1449,7 @@ app.get(
           last_updated:
             item.last_updated ||
             null
-
         }
-
       });
 
     } catch (error) {
@@ -1587,11 +1477,8 @@ app.get(
         error:
           error.data ||
           error.message
-
       });
-
     }
-
   }
 );
 
@@ -1628,7 +1515,6 @@ app.get(
           trends.length,
 
         trends
-
       });
 
     } catch (error) {
@@ -1652,11 +1538,8 @@ app.get(
         error:
           error.data ||
           error.message
-
       });
-
     }
-
   }
 );
 
@@ -1739,9 +1622,7 @@ function parseTrendQuery(
         );
 
       break;
-
     }
-
   }
 
 
@@ -1783,11 +1664,8 @@ function parseTrendQuery(
           );
 
         break;
-
       }
-
     }
-
   }
 
 
@@ -1812,9 +1690,7 @@ function parseTrendQuery(
 
     parser_version:
       "v2"
-
   };
-
 }
 
 
@@ -1839,9 +1715,7 @@ app.get(
 
           error:
             "Debes proporcionar q."
-
         });
-
       }
 
       const parsed =
@@ -1855,7 +1729,6 @@ app.get(
           true,
 
         ...parsed
-
       });
 
     } catch (error) {
@@ -1872,17 +1745,81 @@ app.get(
 
         error:
           error.message
-
       });
-
     }
-
   }
 );
 
 
 // =====================================================
-// TREND → PRODUCT V2
+// DOMAIN DISCOVERY
+// =====================================================
+
+async function discoverDomain(
+  query
+) {
+
+  const params =
+    new URLSearchParams({
+
+      q:
+        query,
+
+      limit:
+        "3"
+    });
+
+
+  const data =
+    await mercadoLibreRequest(
+      `/sites/MLM/domain_discovery/search?${params.toString()}`
+    );
+
+
+  const results =
+    Array.isArray(data)
+      ? data
+      : [];
+
+
+  if (
+    results.length === 0
+  ) {
+
+    return null;
+  }
+
+
+  return {
+
+    domain_id:
+      results[0].domain_id ||
+      null,
+
+    domain_name:
+      results[0].domain_name ||
+      null,
+
+    category_id:
+      results[0].category_id ||
+      null,
+
+    category_name:
+      results[0].category_name ||
+      null,
+
+    attributes:
+      results[0].attributes ||
+      [],
+
+    alternatives:
+      results
+  };
+}
+
+
+// =====================================================
+// TREND → DOMAIN → PRODUCT V3
 // =====================================================
 
 app.get(
@@ -1902,9 +1839,7 @@ app.get(
 
           error:
             "Debes proporcionar q."
-
         });
-
       }
 
 
@@ -1923,7 +1858,7 @@ app.get(
       );
 
       console.log(
-        "FINDR - TREND → PRODUCT V2"
+        "FINDR - TREND → DOMAIN → PRODUCT"
       );
 
       console.log(
@@ -1947,12 +1882,60 @@ app.get(
 
 
       // -----------------------------------------------
-      // 2. BUSCAR PRODUCTO
+      // 2. DESCUBRIR DOMINIO
+      // -----------------------------------------------
+
+      const domain =
+        await discoverDomain(
+          parsed.product_query
+        );
+
+
+      if (!domain) {
+
+        return res.json({
+
+          success:
+            true,
+
+          raw_query:
+            parsed.raw_query,
+
+          product_query:
+            parsed.product_query,
+
+          requested_condition:
+            parsed.condition,
+
+          domain:
+            null,
+
+          search_total:
+            0,
+
+          products_found:
+            0,
+
+          results: []
+        });
+      }
+
+
+      console.log(
+        "Domain discovered:",
+        domain.domain_id
+      );
+
+
+      // -----------------------------------------------
+      // 3. PRODUCT SEARCH DENTRO DEL DOMINIO
       // -----------------------------------------------
 
       const limit =
         Math.min(
-          Number(req.query.limit) || 10,
+          Number(
+            req.query.limit
+          ) || 10,
           50
         );
 
@@ -1969,9 +1952,11 @@ app.get(
           q:
             parsed.product_query,
 
+          domain_id:
+            domain.domain_id,
+
           limit:
             String(limit)
-
         });
 
 
@@ -1987,7 +1972,7 @@ app.get(
 
 
       // -----------------------------------------------
-      // 3. NORMALIZAR
+      // 4. NORMALIZAR PRODUCTOS
       // -----------------------------------------------
 
       const normalized =
@@ -2013,9 +1998,7 @@ app.get(
                 ] =
                   attribute.value_name ||
                   null;
-
               }
-
             }
 
 
@@ -2073,121 +2056,9 @@ app.get(
                 null,
 
               attributes
-
             };
-
           }
         );
-
-
-      // -----------------------------------------------
-      // 4. RELEVANCIA
-      // -----------------------------------------------
-
-      const queryWords =
-        parsed.product_query
-          .toLowerCase()
-          .split(/\s+/)
-          .filter(
-            word =>
-              word.length >= 2
-          );
-
-
-      const ranked =
-        normalized
-          .map(
-            product => {
-
-              const text =
-                [
-
-                  product.name,
-
-                  product.brand,
-
-                  product.line,
-
-                  product.model,
-
-                  product.memory,
-
-                  product.color
-
-                ]
-                  .filter(Boolean)
-                  .join(" ")
-                  .toLowerCase();
-
-
-              let score =
-                0;
-
-
-              for (
-                const word
-                of queryWords
-              ) {
-
-                if (
-                  text.includes(word)
-                ) {
-
-                  score += 1;
-
-                }
-
-              }
-
-
-              // Marca
-              if (
-                product.brand &&
-                parsed.product_query
-                  .toLowerCase()
-                  .includes(
-                    product.brand
-                      .toLowerCase()
-                  )
-              ) {
-
-                score += 2;
-
-              }
-
-
-              // Modelo
-              if (
-                product.model &&
-                parsed.product_query
-                  .toLowerCase()
-                  .includes(
-                    product.model
-                      .toLowerCase()
-                  )
-              ) {
-
-                score += 2;
-
-              }
-
-
-              return {
-
-                ...product,
-
-                relevance_score:
-                  score
-
-              };
-
-            }
-          )
-          .sort(
-            (a, b) =>
-              b.relevance_score -
-              a.relevance_score
-          );
 
 
       // -----------------------------------------------
@@ -2208,6 +2079,21 @@ app.get(
         requested_condition:
           parsed.condition,
 
+        domain: {
+
+          domain_id:
+            domain.domain_id,
+
+          domain_name:
+            domain.domain_name,
+
+          category_id:
+            domain.category_id,
+
+          category_name:
+            domain.category_name
+        },
+
         search_total:
           data.paging?.total ||
           0,
@@ -2216,15 +2102,14 @@ app.get(
           products.length,
 
         results:
-          ranked
-
+          normalized
       });
 
 
     } catch (error) {
 
       console.error(
-        "Trend → Product V2 error:",
+        "Trend → Domain → Product error:",
         error
       );
 
@@ -2243,11 +2128,8 @@ app.get(
         error:
           error.data ||
           error.message
-
       });
-
     }
-
   }
 );
 
