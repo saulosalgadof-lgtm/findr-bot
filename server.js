@@ -2329,7 +2329,128 @@ app.get(
     }
   }
 );
+// =====================================================
+// DIAGNÓSTICO DE ACCESO MERCADO LIBRE
+// =====================================================
 
+app.get("/ml-diagnostic", async (req, res) => {
+
+  const results = {};
+
+  // -----------------------------------------------
+  // 1. USER
+  // -----------------------------------------------
+
+  try {
+
+    const account =
+      await getValidMercadoLibreAccount();
+
+    const user =
+      await mercadoLibreRequest(
+        `/users/${account.user_id}`
+      );
+
+    results.user = {
+      success: true,
+      status: 200,
+      user_id: user.id,
+      nickname: user.nickname
+    };
+
+  } catch (error) {
+
+    results.user = {
+      success: false,
+      status: error.status || null,
+      error: error.data || error.message
+    };
+
+  }
+
+
+  // -----------------------------------------------
+  // 2. MARKETPLACE SEARCH
+  // -----------------------------------------------
+
+  try {
+
+    const params =
+      new URLSearchParams({
+        q: "iphone 11",
+        limit: "3"
+      });
+
+    const search =
+      await mercadoLibreRequest(
+        `/sites/MLM/search?${params.toString()}`
+      );
+
+    results.marketplace_search = {
+      success: true,
+      status: 200,
+      total: search.paging?.total || 0,
+      results: search.results?.length || 0
+    };
+
+  } catch (error) {
+
+    results.marketplace_search = {
+      success: false,
+      status: error.status || null,
+      error: error.data || error.message
+    };
+
+  }
+
+
+  // -----------------------------------------------
+  // 3. PRODUCT SEARCH
+  // -----------------------------------------------
+
+  try {
+
+    const params =
+      new URLSearchParams({
+        status: "active",
+        site_id: "MLM",
+        q: "iphone 11",
+        limit: "3"
+      });
+
+    const products =
+      await mercadoLibreRequest(
+        `/products/search?${params.toString()}`
+      );
+
+    results.product_search = {
+      success: true,
+      status: 200,
+      total: products.paging?.total || 0,
+      results: products.results?.length || 0
+    };
+
+  } catch (error) {
+
+    results.product_search = {
+      success: false,
+      status: error.status || null,
+      error: error.data || error.message
+    };
+
+  }
+
+
+  // -----------------------------------------------
+  // RESPONSE
+  // -----------------------------------------------
+
+  res.json({
+    success: true,
+    diagnostic: results
+  });
+
+});
 
 // =====================================================
 // SERVIDOR
