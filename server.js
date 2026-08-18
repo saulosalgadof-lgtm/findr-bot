@@ -3367,23 +3367,24 @@ app.get(
   }
 );
 // =====================================================
-// PRODUCT OPPORTUNITY
+// FINDR - PRODUCT OPPORTUNITY V2
 // =====================================================
-//
-// Obtiene las publicaciones reales asociadas a un
-// producto de catálogo y las normaliza para FINDR.
 //
 // Flujo:
 //
 // PRODUCT_ID
 //     ↓
-// /products/{PRODUCT_ID}/items
+// PRODUCT DETAIL
 //     ↓
-// item_id
+// PRODUCT LISTINGS
 //     ↓
-// /items?ids=...
+// ITEM IDS
 //     ↓
-// publicaciones completas
+// MULTIGET /items
+//     ↓
+// PUBLICACIONES REALES
+//     ↓
+// MARKET ANALYSIS
 //
 // =====================================================
 
@@ -3414,7 +3415,7 @@ app.get(
       );
 
       console.log(
-        "FINDR PRODUCT OPPORTUNITY"
+        "FINDR - PRODUCT OPPORTUNITY V2"
       );
 
       console.log(
@@ -3427,9 +3428,21 @@ app.get(
       );
 
 
-      // -----------------------------------------------
-      // 1. OBTENER PUBLICACIONES DEL PRODUCTO
-      // -----------------------------------------------
+      // =================================================
+      // 1. PRODUCT DETAIL
+      // =================================================
+
+      const product =
+        await mercadoLibreRequest(
+          `/products/${encodeURIComponent(
+            productId
+          )}`
+        );
+
+
+      // =================================================
+      // 2. OBTENER REFERENCIAS DE PUBLICACIONES
+      // =================================================
 
       const listingsData =
         await mercadoLibreRequest(
@@ -3438,7 +3451,8 @@ app.get(
           )}/items?limit=100`
         );
 
-      const listingReferences =
+
+      const references =
         Array.isArray(
           listingsData.results
         )
@@ -3446,12 +3460,18 @@ app.get(
           : [];
 
 
-      // -----------------------------------------------
-      // 2. EXTRAER ITEM IDs
-      // -----------------------------------------------
+      console.log(
+        "Listing references:",
+        references.length
+      );
+
+
+      // =================================================
+      // 3. EXTRAER ITEM IDS
+      // =================================================
 
       const itemIds =
-        listingReferences
+        references
           .map(
             listing =>
               listing.item_id ||
@@ -3460,16 +3480,75 @@ app.get(
           .filter(Boolean);
 
 
+      console.log(
+        "Item IDs:",
+        itemIds.length
+      );
+
+
+      // =================================================
+      // SI NO HAY PUBLICACIONES
+      // =================================================
+
       if (itemIds.length === 0) {
 
         return res.json({
 
           success: true,
 
-          product_id:
-            productId,
+          product: {
 
-          total_listings: 0,
+            product_id:
+              product.id ||
+              productId,
+
+            name:
+              product.name ||
+              null,
+
+            family_name:
+              product.family_name ||
+              null,
+
+            domain_id:
+              product.domain_id ||
+              null,
+
+            status:
+              product.status ||
+              null,
+
+            sold_quantity:
+              product.sold_quantity ||
+              0,
+
+            permalink:
+              product.permalink ||
+              null
+
+          },
+
+          market: {
+
+            total_listings: 0,
+
+            sellers: 0,
+
+            new_listings: 0,
+
+            used_listings: 0,
+
+            official_store_listings: 0,
+
+            average_price: null,
+
+            minimum_price: null,
+
+            maximum_price: null,
+
+            total_sold_quantity: 0
+
+          },
 
           listings: []
 
@@ -3478,14 +3557,15 @@ app.get(
       }
 
 
-      // -----------------------------------------------
-      // 3. MULTIGET
-      // -----------------------------------------------
+      // =================================================
+      // 4. MULTIGET DE ITEMS
+      // =================================================
       //
-      // Mercado Libre permite consultar múltiples
-      // publicaciones mediante /items?ids=
+      // Mercado Libre permite:
       //
-      // Dividimos en grupos de 20.
+      // /items?ids=ITEM1,ITEM2,...
+      //
+      // Usamos grupos de máximo 20.
       //
 
       const chunks = [];
@@ -3522,6 +3602,13 @@ app.get(
 
           });
 
+
+        console.log(
+          "Fetching items:",
+          chunk.length
+        );
+
+
         const itemsData =
           await mercadoLibreRequest(
             `/items?${params.toString()}`
@@ -3529,7 +3616,9 @@ app.get(
 
 
         if (
-          Array.isArray(itemsData)
+          Array.isArray(
+            itemsData
+          )
         ) {
 
           for (
@@ -3538,6 +3627,7 @@ app.get(
           ) {
 
             if (
+              result &&
               result.code === 200 &&
               result.body
             ) {
@@ -3555,9 +3645,15 @@ app.get(
       }
 
 
-      // -----------------------------------------------
-      // 4. NORMALIZAR PUBLICACIONES
-      // -----------------------------------------------
+      console.log(
+        "Complete items:",
+        allItems.length
+      );
+
+
+      // =================================================
+      // 5. NORMALIZAR PUBLICACIONES
+      // =================================================
 
       const listings =
         allItems.map(
@@ -3582,24 +3678,18 @@ app.get(
                 null,
 
               price:
-                item.price ||
-                null,
+                Number(
+                  item.price
+                ) || 0,
+
+              original_price:
+                Number(
+                  item.original_price
+                ) || null,
 
               currency_id:
                 item.currency_id ||
                 null,
-
-              original_price:
-                item.original_price ||
-                null,
-
-              available_quantity:
-                item.available_quantity ||
-                0,
-
-              sold_quantity:
-                item.sold_quantity ||
-                0,
 
               condition:
                 item.condition ||
@@ -3621,12 +3711,26 @@ app.get(
                 item.catalog_product_id ||
                 null,
 
-              shipping:
-                item.shipping ||
+              official_store_id:
+                item.official_store_id ||
                 null,
+
+              available_quantity:
+                Number(
+                  item.available_quantity
+                ) || 0,
+
+              sold_quantity:
+                Number(
+                  item.sold_quantity
+                ) || 0,
 
               warranty:
                 item.warranty ||
+                null,
+
+              shipping:
+                item.shipping ||
                 null,
 
               permalink:
@@ -3647,14 +3751,31 @@ app.get(
         );
 
 
-      // -----------------------------------------------
-      // 5. MÉTRICAS BÁSICAS DE MERCADO
-      // -----------------------------------------------
+      // =================================================
+      // 6. MÉTRICAS
+      // =================================================
 
-      const usedListings =
-        listings.filter(
-          listing =>
-            listing.condition === "used"
+      const prices =
+        listings
+          .map(
+            listing =>
+              listing.price
+          )
+          .filter(
+            price =>
+              Number.isFinite(price) &&
+              price > 0
+          );
+
+
+      const sellers =
+        new Set(
+          listings
+            .map(
+              listing =>
+                listing.seller_id
+            )
+            .filter(Boolean)
         );
 
 
@@ -3665,42 +3786,32 @@ app.get(
         );
 
 
-      const prices =
-        listings
-          .map(
-            listing =>
-              Number(
-                listing.price
-              )
-          )
-          .filter(
-            price =>
-              Number.isFinite(price) &&
-              price > 0
-          );
+      const usedListings =
+        listings.filter(
+          listing =>
+            listing.condition === "used"
+        );
 
 
-      const soldQuantities =
-        listings
-          .map(
-            listing =>
-              Number(
-                listing.sold_quantity
-              )
-          )
-          .filter(
-            quantity =>
-              Number.isFinite(quantity)
-          );
+      const officialStoreListings =
+        listings.filter(
+          listing =>
+            !!listing.official_store_id
+        );
 
 
-      const totalSold =
-        soldQuantities.reduce(
+      const totalSoldQuantity =
+        listings.reduce(
           (
             total,
-            quantity
+            listing
           ) =>
-            total + quantity,
+            total +
+            (
+              Number(
+                listing.sold_quantity
+              ) || 0
+            ),
           0
         );
 
@@ -3734,331 +3845,15 @@ app.get(
           : null;
 
 
-      // -----------------------------------------------
-      // 6. RESPONSE
-      // -----------------------------------------------
-
-      res.json({
-
-        success: true,
-
-        product_id:
-          productId,
-
-        total_listings:
-          listings.length,
-
-        market: {
-
-          sellers:
-            new Set(
-              listings
-                .map(
-                  listing =>
-                    listing.seller_id
-                )
-                .filter(Boolean)
-            ).size,
-
-          used_listings:
-            usedListings.length,
-
-          new_listings:
-            newListings.length,
-
-          total_sold_quantity:
-            totalSold,
-
-          average_price:
-            averagePrice,
-
-          minimum_price:
-            minimumPrice,
-
-          maximum_price:
-            maximumPrice
-
-        },
-
-        listings
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Product opportunity error:",
-        error
-      );
-
-      res.status(
-        error.status || 500
-      ).json({
-
-        success: false,
-
-        status:
-          error.status ||
-          null,
-
-        product_id:
-          req.query.product_id ||
-          null,
-
-        error:
-          error.data ||
-          error.message
-
-      });
-
-    }
-
-  }
-);
-// =====================================================
-// PRODUCT OPPORTUNITY
-// =====================================================
-//
-// Analiza un producto de catálogo y sus publicaciones
-// reales para preparar la información de oportunidad.
-//
-// Flujo:
-//
-// PRODUCT
-//   ↓
-// LISTINGS
-//   ↓
-// MARKET ANALYSIS
-//
-// =====================================================
-
-app.get(
-  "/product-opportunity",
-  async (req, res) => {
-
-    try {
-
-      const productId =
-        req.query.product_id;
-
-      if (!productId) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          error:
-            "Debes proporcionar product_id."
-
-        });
-
-      }
-
-      console.log(
-        "======================================"
-      );
-
-      console.log(
-        "FINDR PRODUCT OPPORTUNITY"
-      );
-
-      console.log(
-        "Product ID:",
-        productId
-      );
-
-      console.log(
-        "======================================"
-      );
-
-
-      // -----------------------------------------------
-      // 1. PRODUCT DETAIL
-      // -----------------------------------------------
-
-      const product =
-        await mercadoLibreRequest(
-          `/products/${encodeURIComponent(
-            productId
-          )}`
-        );
-
-
-      // -----------------------------------------------
-      // 2. PRODUCT LISTINGS
-      // -----------------------------------------------
-
-      const params =
-        new URLSearchParams({
-
-          limit:
-            "100",
-
-          offset:
-            "0"
-
-        });
-
-      const listingsData =
-        await mercadoLibreRequest(
-          `/products/${encodeURIComponent(
-            productId
-          )}/items?${params.toString()}`
-        );
-
-      const listings =
-        Array.isArray(
-          listingsData.results
-        )
-          ? listingsData.results
-          : [];
-
-
-      // -----------------------------------------------
-      // 3. NORMALIZAR LISTINGS
-      // -----------------------------------------------
-
-      const normalizedListings =
-        listings.map(
-          listing => {
-
-            return {
-
-              item_id:
-                listing.item_id ||
-                null,
-
-              seller_id:
-                listing.seller_id ||
-                null,
-
-              price:
-                Number(
-                  listing.price
-                ) || 0,
-
-              currency_id:
-                listing.currency_id ||
-                null,
-
-              condition:
-                listing.condition ||
-                null,
-
-              listing_type_id:
-                listing.listing_type_id ||
-                null,
-
-              official_store_id:
-                listing.official_store_id ||
-                null,
-
-              warranty:
-                listing.warranty ||
-                null,
-
-              shipping:
-                listing.shipping ||
-                null,
-
-              tags:
-                listing.tags ||
-                []
-
-            };
-
-          }
-        );
-
-
-      // -----------------------------------------------
-      // 4. MARKET METRICS
-      // -----------------------------------------------
-
-      const prices =
-        normalizedListings
-          .map(
-            listing =>
-              listing.price
-          )
-          .filter(
-            price =>
-              price > 0
-          );
-
-
-      const sellers =
-        [
-          ...new Set(
-            normalizedListings
-              .map(
-                listing =>
-                  listing.seller_id
-              )
-              .filter(Boolean)
-          )
-        ];
-
-
-      const lowestPrice =
-        prices.length
-          ? Math.min(
-              ...prices
-            )
-          : null;
-
-
-      const highestPrice =
-        prices.length
-          ? Math.max(
-              ...prices
-            )
-          : null;
-
-
-      const averagePrice =
-        prices.length
-          ? prices.reduce(
-              (
-                total,
-                price
-              ) =>
-                total + price,
-              0
-            ) / prices.length
-          : null;
-
-
-      const officialStores =
-        normalizedListings.filter(
-          listing =>
-            !!listing.official_store_id
-        ).length;
-
-
-      const newListings =
-        normalizedListings.filter(
-          listing =>
-            listing.condition === "new"
-        ).length;
-
-
-      const usedListings =
-        normalizedListings.filter(
-          listing =>
-            listing.condition === "used"
-        ).length;
-
-
-      // -----------------------------------------------
-      // 5. PRODUCT INFORMATION
-      // -----------------------------------------------
+      // =================================================
+      // 7. PRODUCT INFORMATION
+      // =================================================
 
       const productInfo = {
 
         product_id:
           product.id ||
-          null,
+          productId,
 
         name:
           product.name ||
@@ -4077,8 +3872,9 @@ app.get(
           null,
 
         sold_quantity:
-          product.sold_quantity ||
-          0,
+          Number(
+            product.sold_quantity
+          ) || 0,
 
         permalink:
           product.permalink ||
@@ -4087,48 +3883,49 @@ app.get(
       };
 
 
-      // -----------------------------------------------
-      // 6. RESPONSE
-      // -----------------------------------------------
+      // =================================================
+      // 8. RESPONSE
+      // =================================================
 
       res.json({
 
-        success:
-          true,
+        success: true,
 
         product:
           productInfo,
 
         market: {
 
-          listings:
-            normalizedListings.length,
+          total_listings:
+            listings.length,
 
           sellers:
-            sellers.length,
+            sellers.size,
 
-          lowest_price:
-            lowestPrice,
+          new_listings:
+            newListings.length,
 
-          highest_price:
-            highestPrice,
+          used_listings:
+            usedListings.length,
+
+          official_store_listings:
+            officialStoreListings.length,
 
           average_price:
             averagePrice,
 
-          official_store_listings:
-            officialStores,
+          minimum_price:
+            minimumPrice,
 
-          new_listings:
-            newListings,
+          maximum_price:
+            maximumPrice,
 
-          used_listings:
-            usedListings
+          total_sold_quantity:
+            totalSoldQuantity
 
         },
 
-        listings:
-          normalizedListings
+        listings
 
       });
 
@@ -4140,12 +3937,12 @@ app.get(
         error
       );
 
+
       res.status(
         error.status || 500
       ).json({
 
-        success:
-          false,
+        success: false,
 
         status:
           error.status ||
