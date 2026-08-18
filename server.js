@@ -4549,6 +4549,99 @@ app.get(
   }
 );
 // =====================================================
+// DEBUG PRODUCT ITEMS
+// =====================================================
+
+app.get(
+  "/debug-product-items",
+  async (req, res) => {
+
+    try {
+
+      const productId =
+        req.query.product_id;
+
+      if (!productId) {
+
+        return res.status(400).json({
+          success: false,
+          error: "Debes proporcionar product_id."
+        });
+
+      }
+
+      const endpoint =
+        `/products/${encodeURIComponent(productId)}/items?limit=100`;
+
+      console.log("======================================");
+      console.log("DEBUG PRODUCT ITEMS");
+      console.log("Product ID:", productId);
+      console.log("Endpoint:", endpoint);
+      console.log("======================================");
+
+      const data =
+        await mercadoLibreRequest(
+          endpoint
+        );
+
+      console.log(
+        "RAW PRODUCT ITEMS RESPONSE:"
+      );
+
+      console.log(
+        JSON.stringify(
+          data,
+          null,
+          2
+        )
+      );
+
+      res.json({
+
+        success: true,
+
+        endpoint,
+
+        raw_response:
+          data,
+
+        results_is_array:
+          Array.isArray(data?.results),
+
+        results_count:
+          Array.isArray(data?.results)
+            ? data.results.length
+            : 0
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Debug product items error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success: false,
+
+        status:
+          error.status || null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
+// =====================================================
 // SERVIDOR
 // =====================================================
 
