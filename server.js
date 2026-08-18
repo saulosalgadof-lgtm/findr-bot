@@ -3367,6 +3367,455 @@ app.get(
   }
 );
 // =====================================================
+// PRODUCT OPPORTUNITY
+// =====================================================
+//
+// Obtiene las publicaciones reales asociadas a un
+// producto de catálogo y las normaliza para FINDR.
+//
+// Flujo:
+//
+// PRODUCT_ID
+//     ↓
+// /products/{PRODUCT_ID}/items
+//     ↓
+// item_id
+//     ↓
+// /items?ids=...
+//     ↓
+// publicaciones completas
+//
+// =====================================================
+
+app.get(
+  "/product-opportunity",
+  async (req, res) => {
+
+    try {
+
+      const productId =
+        req.query.product_id;
+
+      if (!productId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          error:
+            "Debes proporcionar product_id."
+
+        });
+
+      }
+
+      console.log(
+        "======================================"
+      );
+
+      console.log(
+        "FINDR PRODUCT OPPORTUNITY"
+      );
+
+      console.log(
+        "Product ID:",
+        productId
+      );
+
+      console.log(
+        "======================================"
+      );
+
+
+      // -----------------------------------------------
+      // 1. OBTENER PUBLICACIONES DEL PRODUCTO
+      // -----------------------------------------------
+
+      const listingsData =
+        await mercadoLibreRequest(
+          `/products/${encodeURIComponent(
+            productId
+          )}/items?limit=100`
+        );
+
+      const listingReferences =
+        Array.isArray(
+          listingsData.results
+        )
+          ? listingsData.results
+          : [];
+
+
+      // -----------------------------------------------
+      // 2. EXTRAER ITEM IDs
+      // -----------------------------------------------
+
+      const itemIds =
+        listingReferences
+          .map(
+            listing =>
+              listing.item_id ||
+              listing.id
+          )
+          .filter(Boolean);
+
+
+      if (itemIds.length === 0) {
+
+        return res.json({
+
+          success: true,
+
+          product_id:
+            productId,
+
+          total_listings: 0,
+
+          listings: []
+
+        });
+
+      }
+
+
+      // -----------------------------------------------
+      // 3. MULTIGET
+      // -----------------------------------------------
+      //
+      // Mercado Libre permite consultar múltiples
+      // publicaciones mediante /items?ids=
+      //
+      // Dividimos en grupos de 20.
+      //
+
+      const chunks = [];
+
+      for (
+        let i = 0;
+        i < itemIds.length;
+        i += 20
+      ) {
+
+        chunks.push(
+          itemIds.slice(
+            i,
+            i + 20
+          )
+        );
+
+      }
+
+
+      const allItems = [];
+
+
+      for (
+        const chunk
+        of chunks
+      ) {
+
+        const params =
+          new URLSearchParams({
+
+            ids:
+              chunk.join(",")
+
+          });
+
+        const itemsData =
+          await mercadoLibreRequest(
+            `/items?${params.toString()}`
+          );
+
+
+        if (
+          Array.isArray(itemsData)
+        ) {
+
+          for (
+            const result
+            of itemsData
+          ) {
+
+            if (
+              result.code === 200 &&
+              result.body
+            ) {
+
+              allItems.push(
+                result.body
+              );
+
+            }
+
+          }
+
+        }
+
+      }
+
+
+      // -----------------------------------------------
+      // 4. NORMALIZAR PUBLICACIONES
+      // -----------------------------------------------
+
+      const listings =
+        allItems.map(
+          item => {
+
+            return {
+
+              item_id:
+                item.id ||
+                null,
+
+              title:
+                item.title ||
+                null,
+
+              seller_id:
+                item.seller_id ||
+                null,
+
+              category_id:
+                item.category_id ||
+                null,
+
+              price:
+                item.price ||
+                null,
+
+              currency_id:
+                item.currency_id ||
+                null,
+
+              original_price:
+                item.original_price ||
+                null,
+
+              available_quantity:
+                item.available_quantity ||
+                0,
+
+              sold_quantity:
+                item.sold_quantity ||
+                0,
+
+              condition:
+                item.condition ||
+                null,
+
+              status:
+                item.status ||
+                null,
+
+              listing_type_id:
+                item.listing_type_id ||
+                null,
+
+              catalog_listing:
+                item.catalog_listing ||
+                false,
+
+              catalog_product_id:
+                item.catalog_product_id ||
+                null,
+
+              shipping:
+                item.shipping ||
+                null,
+
+              warranty:
+                item.warranty ||
+                null,
+
+              permalink:
+                item.permalink ||
+                null,
+
+              date_created:
+                item.date_created ||
+                null,
+
+              last_updated:
+                item.last_updated ||
+                null
+
+            };
+
+          }
+        );
+
+
+      // -----------------------------------------------
+      // 5. MÉTRICAS BÁSICAS DE MERCADO
+      // -----------------------------------------------
+
+      const usedListings =
+        listings.filter(
+          listing =>
+            listing.condition === "used"
+        );
+
+
+      const newListings =
+        listings.filter(
+          listing =>
+            listing.condition === "new"
+        );
+
+
+      const prices =
+        listings
+          .map(
+            listing =>
+              Number(
+                listing.price
+              )
+          )
+          .filter(
+            price =>
+              Number.isFinite(price) &&
+              price > 0
+          );
+
+
+      const soldQuantities =
+        listings
+          .map(
+            listing =>
+              Number(
+                listing.sold_quantity
+              )
+          )
+          .filter(
+            quantity =>
+              Number.isFinite(quantity)
+          );
+
+
+      const totalSold =
+        soldQuantities.reduce(
+          (
+            total,
+            quantity
+          ) =>
+            total + quantity,
+          0
+        );
+
+
+      const averagePrice =
+        prices.length
+          ? prices.reduce(
+              (
+                total,
+                price
+              ) =>
+                total + price,
+              0
+            ) / prices.length
+          : null;
+
+
+      const minimumPrice =
+        prices.length
+          ? Math.min(
+              ...prices
+            )
+          : null;
+
+
+      const maximumPrice =
+        prices.length
+          ? Math.max(
+              ...prices
+            )
+          : null;
+
+
+      // -----------------------------------------------
+      // 6. RESPONSE
+      // -----------------------------------------------
+
+      res.json({
+
+        success: true,
+
+        product_id:
+          productId,
+
+        total_listings:
+          listings.length,
+
+        market: {
+
+          sellers:
+            new Set(
+              listings
+                .map(
+                  listing =>
+                    listing.seller_id
+                )
+                .filter(Boolean)
+            ).size,
+
+          used_listings:
+            usedListings.length,
+
+          new_listings:
+            newListings.length,
+
+          total_sold_quantity:
+            totalSold,
+
+          average_price:
+            averagePrice,
+
+          minimum_price:
+            minimumPrice,
+
+          maximum_price:
+            maximumPrice
+
+        },
+
+        listings
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Product opportunity error:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+
+        success: false,
+
+        status:
+          error.status ||
+          null,
+
+        product_id:
+          req.query.product_id ||
+          null,
+
+        error:
+          error.data ||
+          error.message
+
+      });
+
+    }
+
+  }
+);
+// =====================================================
 // SERVIDOR
 // =====================================================
 
