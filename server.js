@@ -1,10 +1,17 @@
 import express from "express";
 
+import trendRoute from "./routes/trend.js";
+import productRoute from "./routes/product.js";
+import opportunityRoute from "./routes/opportunity.js";
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+trendRoute(app);
+productRoute(app);
+opportunityRoute(app);
 
 // =====================================================
 // CONFIGURACIÓN
