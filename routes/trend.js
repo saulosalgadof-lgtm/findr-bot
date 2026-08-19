@@ -1,6 +1,6 @@
 // FINDR - TREND ROUTE
 
-module.exports = function trendRoute(app) {
+export default function trendRoute(app) {
 
   app.get("/test-trend", (req, res) => {
 
@@ -11,4 +11,4 @@ module.exports = function trendRoute(app) {
 
   });
 
-};
+}
