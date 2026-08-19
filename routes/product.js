@@ -1,6 +1,9 @@
 // FINDR - PRODUCT ROUTE
 
-export default function productRoute(app) {
+export default function productRoute(
+  app,
+  mercadoLibreRequest
+) {
 
   app.get("/test-product", (req, res) => {
 
