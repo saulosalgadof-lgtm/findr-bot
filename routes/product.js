@@ -1,6 +1,6 @@
 // FINDR - PRODUCT ROUTE
 
-module.exports = function productRoute(app) {
+export default function productRoute(app) {
 
   app.get("/test-product", (req, res) => {
 
@@ -11,4 +11,4 @@ module.exports = function productRoute(app) {
 
   });
 
-};
+}
