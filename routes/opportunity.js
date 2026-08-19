@@ -1,6 +1,9 @@
 // FINDR - OPPORTUNITY ROUTE
 
-export default function opportunityRoute(app) {
+export default function opportunityRoute(
+  app,
+  mercadoLibreRequest
+) {
 
   app.get("/test-opportunity", (req, res) => {
 
