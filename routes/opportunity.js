@@ -1,6 +1,6 @@
 // FINDR - OPPORTUNITY ROUTE
 
-module.exports = function opportunityRoute(app) {
+export default function opportunityRoute(app) {
 
   app.get("/test-opportunity", (req, res) => {
 
@@ -11,4 +11,4 @@ module.exports = function opportunityRoute(app) {
 
   });
 
-};
+}
