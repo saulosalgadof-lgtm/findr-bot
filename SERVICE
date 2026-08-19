@@ -1,0 +1,416 @@
+// =====================================================
+// FINDR SCORE ENGINE V1
+// =====================================================
+//
+// Calcula el score de oportunidad de un producto.
+//
+// Componentes:
+//
+// Demand       20%
+// Competition  20%
+// Margin       20%
+// Price        10%
+// Sales        15%
+// Risk         15%
+//
+// =====================================================
+
+export function calculateFindrScore({
+
+  trendRank = null,
+
+  soldQuantity = null,
+
+  sellers = 0,
+
+  sellingPrice = null,
+
+  acquisitionCost = null,
+
+  marketPrice = null,
+
+  condition = null,
+
+  catalogListing = false
+
+}) {
+
+  // ===================================================
+  // 1. DEMAND
+  // ===================================================
+
+  let demand = 50;
+
+  if (
+    Number.isFinite(
+      Number(trendRank)
+    )
+  ) {
+
+    const rank =
+      Number(trendRank);
+
+    if (rank <= 10) {
+
+      demand = 100;
+
+    } else if (rank <= 25) {
+
+      demand = 85;
+
+    } else if (rank <= 50) {
+
+      demand = 70;
+
+    } else if (rank <= 100) {
+
+      demand = 55;
+
+    } else {
+
+      demand = 35;
+
+    }
+
+  }
+
+
+  // ===================================================
+  // 2. COMPETITION
+  // ===================================================
+
+  let competition = 70;
+
+  const sellerCount =
+    Number(sellers) || 0;
+
+  if (sellerCount === 0) {
+
+    competition = 100;
+
+  } else if (sellerCount <= 3) {
+
+    competition = 90;
+
+  } else if (sellerCount <= 10) {
+
+    competition = 75;
+
+  } else if (sellerCount <= 25) {
+
+    competition = 55;
+
+  } else if (sellerCount <= 50) {
+
+    competition = 35;
+
+  } else {
+
+    competition = 20;
+
+  }
+
+
+  // ===================================================
+  // 3. MARGIN
+  // ===================================================
+
+  let margin = 50;
+
+  const price =
+    Number(sellingPrice);
+
+  const cost =
+    Number(acquisitionCost);
+
+  let marginPercent = null;
+
+  if (
+    Number.isFinite(price) &&
+    price > 0 &&
+    Number.isFinite(cost) &&
+    cost >= 0
+  ) {
+
+    const profit =
+      price - cost;
+
+    marginPercent =
+      (profit / price) * 100;
+
+
+    if (marginPercent >= 40) {
+
+      margin = 100;
+
+    } else if (marginPercent >= 30) {
+
+      margin = 90;
+
+    } else if (marginPercent >= 25) {
+
+      margin = 80;
+
+    } else if (marginPercent >= 20) {
+
+      margin = 70;
+
+    } else if (marginPercent >= 15) {
+
+      margin = 55;
+
+    } else if (marginPercent >= 10) {
+
+      margin = 40;
+
+    } else if (marginPercent > 0) {
+
+      margin = 20;
+
+    } else {
+
+      margin = 0;
+
+    }
+
+  }
+
+
+  // ===================================================
+  // 4. PRICE
+  // ===================================================
+
+  let priceScore = 60;
+
+  const market =
+    Number(marketPrice);
+
+  if (
+    Number.isFinite(price) &&
+    price > 0 &&
+    Number.isFinite(market) &&
+    market > 0
+  ) {
+
+    const difference =
+      ((market - price) / market) * 100;
+
+
+    if (difference >= 20) {
+
+      priceScore = 100;
+
+    } else if (difference >= 15) {
+
+      priceScore = 90;
+
+    } else if (difference >= 10) {
+
+      priceScore = 80;
+
+    } else if (difference >= 5) {
+
+      priceScore = 70;
+
+    } else if (difference >= 0) {
+
+      priceScore = 60;
+
+    } else if (difference >= -5) {
+
+      priceScore = 45;
+
+    } else if (difference >= -10) {
+
+      priceScore = 30;
+
+    } else {
+
+      priceScore = 15;
+
+    }
+
+  }
+
+
+  // ===================================================
+  // 5. SALES
+  // ===================================================
+
+  let sales = 50;
+
+  if (
+    Number.isFinite(
+      Number(soldQuantity)
+    )
+  ) {
+
+    const sold =
+      Number(soldQuantity);
+
+
+    if (sold >= 1000) {
+
+      sales = 100;
+
+    } else if (sold >= 500) {
+
+      sales = 90;
+
+    } else if (sold >= 250) {
+
+      sales = 80;
+
+    } else if (sold >= 100) {
+
+      sales = 70;
+
+    } else if (sold >= 50) {
+
+      sales = 60;
+
+    } else if (sold > 0) {
+
+      sales = 45;
+
+    } else {
+
+      sales = 30;
+
+    }
+
+  }
+
+
+  // ===================================================
+  // 6. RISK
+  // ===================================================
+
+  let risk = 70;
+
+
+  if (condition === "used") {
+
+    risk -= 10;
+
+  }
+
+
+  if (condition === "new") {
+
+    risk += 10;
+
+  }
+
+
+  if (catalogListing === true) {
+
+    risk += 10;
+
+  }
+
+
+  risk =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        risk
+      )
+    );
+
+
+  // ===================================================
+  // 7. FINAL SCORE
+  // ===================================================
+
+  const score =
+    Math.round(
+
+      demand * 0.20 +
+
+      competition * 0.20 +
+
+      margin * 0.20 +
+
+      priceScore * 0.10 +
+
+      sales * 0.15 +
+
+      risk * 0.15
+
+    );
+
+
+  // ===================================================
+  // 8. VERDICT
+  // ===================================================
+
+  let verdict;
+
+
+  if (score >= 80) {
+
+    verdict =
+      "STRONG_OPPORTUNITY";
+
+  } else if (score >= 65) {
+
+    verdict =
+      "GOOD_OPPORTUNITY";
+
+  } else if (score >= 50) {
+
+    verdict =
+      "MODERATE_OPPORTUNITY";
+
+  } else if (score >= 30) {
+
+    verdict =
+      "WEAK_OPPORTUNITY";
+
+  } else {
+
+    verdict =
+      "AVOID";
+
+  }
+
+
+  // ===================================================
+  // 9. RESULT
+  // ===================================================
+
+  return {
+
+    score,
+
+    verdict,
+
+    components: {
+
+      demand,
+
+      competition,
+
+      margin,
+
+      price:
+        priceScore,
+
+      sales,
+
+      risk
+
+    },
+
+    metrics: {
+
+      margin_percent:
+        marginPercent
+
+    }
+
+  };
+
+}
