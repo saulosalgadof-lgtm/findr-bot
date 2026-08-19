@@ -1,6 +1,9 @@
 // FINDR - TREND ROUTE
 
-export default function trendRoute(app) {
+export default function trendRoute(
+  app,
+  mercadoLibreRequest
+) {
 
   app.get("/test-trend", (req, res) => {
 
