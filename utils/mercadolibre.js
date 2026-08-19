@@ -2,108 +2,39 @@
 // FINDR - MERCADO LIBRE API
 // =====================================================
 //
-// Funciones centralizadas para comunicarnos con
-// Mercado Libre.
+// Crea un cliente autenticado para Mercado Libre.
 //
-// Este archivo NO contiene rutas.
-// Solo contiene lógica de API/autenticación.
+// La autenticación permanece en server.js.
+// Este módulo solamente maneja las peticiones HTTP.
 //
 // =====================================================
 
 
-// =====================================================
-// MERCADO LIBRE REQUEST AUTENTICADO
-// =====================================================
-
-export async function mercadoLibreRequest(
-  endpoint,
-  options = {},
+export function createMercadoLibreRequest(
   getValidMercadoLibreAccount,
   refreshMercadoLibreToken
 ) {
 
-  let account =
-    await getValidMercadoLibreAccount();
-
-
-  console.log(
-    "ML REQUEST:",
-    endpoint
-  );
-
-
-  // ---------------------------------------------------
-  // REQUEST PRINCIPAL
-  // ---------------------------------------------------
-
-  let response =
-    await fetch(
-      `https://api.mercadolibre.com${endpoint}`,
-      {
-
-        ...options,
-
-        headers: {
-
-          Authorization:
-            `Bearer ${account.access_token}`,
-
-          accept:
-            "application/json",
-
-          ...(options.headers || {})
-
-        }
-
-      }
-    );
-
-
-  // ---------------------------------------------------
-  // PROCESAR RESPUESTA
-  // ---------------------------------------------------
-
-  let data;
-
-  const text =
-    await response.text();
-
-
-  try {
-
-    data =
-      text
-        ? JSON.parse(text)
-        : null;
-
-  } catch {
-
-    data =
-      text;
-
-  }
-
-
-  // ---------------------------------------------------
-  // TOKEN EXPIRADO
-  // ---------------------------------------------------
-
-  if (
-    response.status === 401
+  return async function mercadoLibreRequest(
+    endpoint,
+    options = {}
   ) {
 
+    let account =
+      await getValidMercadoLibreAccount();
+
+
     console.log(
-      "Access token invalid. Refreshing..."
+      "ML REQUEST:",
+      endpoint
     );
 
 
-    account =
-      await refreshMercadoLibreToken(
-        account
-      );
+    // -------------------------------------------------
+    // REQUEST PRINCIPAL
+    // -------------------------------------------------
 
-
-    response =
+    let response =
       await fetch(
         `https://api.mercadolibre.com${endpoint}`,
         {
@@ -126,52 +57,121 @@ export async function mercadoLibreRequest(
       );
 
 
-    const retryText =
+    // -------------------------------------------------
+    // PROCESAR RESPUESTA
+    // -------------------------------------------------
+
+    let data;
+
+    const text =
       await response.text();
 
 
     try {
 
       data =
-        retryText
-          ? JSON.parse(retryText)
+        text
+          ? JSON.parse(text)
           : null;
 
     } catch {
 
       data =
-        retryText;
+        text;
 
     }
 
-  }
 
+    // -------------------------------------------------
+    // TOKEN EXPIRADO
+    // -------------------------------------------------
 
-  // ---------------------------------------------------
-  // ERRORES
-  // ---------------------------------------------------
+    if (
+      response.status === 401
+    ) {
 
-  if (!response.ok) {
-
-    const error =
-      new Error(
-        `Mercado Libre ${response.status}: ${JSON.stringify(data)}`
+      console.log(
+        "Access token invalid. Refreshing..."
       );
 
 
-    error.status =
-      response.status;
+      account =
+        await refreshMercadoLibreToken(
+          account
+        );
 
 
-    error.data =
-      data;
+      response =
+        await fetch(
+          `https://api.mercadolibre.com${endpoint}`,
+          {
+
+            ...options,
+
+            headers: {
+
+              Authorization:
+                `Bearer ${account.access_token}`,
+
+              accept:
+                "application/json",
+
+              ...(options.headers || {})
+
+            }
+
+          }
+        );
 
 
-    throw error;
+      const retryText =
+        await response.text();
 
-  }
+
+      try {
+
+        data =
+          retryText
+            ? JSON.parse(retryText)
+            : null;
+
+      } catch {
+
+        data =
+          retryText;
+
+      }
+
+    }
 
 
-  return data;
+    // -------------------------------------------------
+    // ERRORES
+    // -------------------------------------------------
+
+    if (!response.ok) {
+
+      const error =
+        new Error(
+          `Mercado Libre ${response.status}: ${JSON.stringify(data)}`
+        );
+
+
+      error.status =
+        response.status;
+
+
+      error.data =
+        data;
+
+
+      throw error;
+
+    }
+
+
+    return data;
+
+  };
 
 }
