@@ -32,6 +32,9 @@
 
 import express from "express";
 
+import mercadolibreAuthRoute
+  from "./routes/mercadolibreAuth.js";
+
 import trendRoute
   from "./routes/trend.js";
 
