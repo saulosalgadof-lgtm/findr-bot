@@ -15,7 +15,8 @@
 //    ├── 4. ROUTES
 //    │      ├── Trend
 //    │      ├── Product
-//    │      └── Opportunity
+//    │      ├── Opportunity
+//    │      └── Hunter
 //    │
 //    ├── 5. HOME
 //    │
@@ -43,6 +44,9 @@ import productRoute
 
 import opportunityRoute
   from "./routes/opportunity.js";
+
+import hunterRoute
+  from "./routes/hunter.js";
 
 
 // =====================================================
@@ -74,6 +78,7 @@ app.use(
 // /routes/trend.js
 // /routes/product.js
 // /routes/opportunity.js
+// /routes/hunter.js
 //
 // server.js solamente registra las rutas.
 //
@@ -85,6 +90,8 @@ trendRoute(app);
 productRoute(app);
 
 opportunityRoute(app);
+
+hunterRoute(app);
 
 
 // =====================================================
@@ -184,6 +191,12 @@ app.get(
             </a>
           </p>
 
+          <p>
+            <a href="/hunter?q=iphone%2011">
+              Hunter
+            </a>
+          </p>
+
         </body>
 
       </html>
@@ -267,6 +280,10 @@ app.listen(
 
     console.log(
       "✓ Opportunity"
+    );
+
+    console.log(
+      "✓ Hunter"
     );
 
     console.log(
