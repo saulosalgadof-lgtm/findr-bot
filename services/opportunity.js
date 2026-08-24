@@ -697,9 +697,38 @@ export function analyzeMarket(
   // ---------------------------------------------------
   // PRICES
   // ---------------------------------------------------
+  //
+  // No todas las publicaciones vienen en la misma moneda
+  // (confirmado en producción: MLM15149562 trae 10 listings
+  // en MXN y 2 en USD). Mezclar currency_id distintos en el
+  // mismo min/max/avg da números sin sentido (ej: "$1200"
+  // pareciendo el más barato cuando en realidad es en USD).
+  // No inventamos tipo de cambio: las publicaciones en otra
+  // moneda quedan fuera de las métricas de precio, pero
+  // siguen contando en totalListings/sellers/condición.
+  //
+  // SITE_ID está fijo en "MLM" en todo el proyecto, así que
+  // la moneda esperada es MXN.
+  // ---------------------------------------------------
+
+  const SITE_CURRENCY =
+    "MXN";
+
+  const priceableListings =
+    safeListings.filter(
+      listing =>
+        (
+          listing.currency_id ||
+          SITE_CURRENCY
+        ) === SITE_CURRENCY
+    );
+
+  const foreignCurrencyListings =
+    safeListings.length -
+    priceableListings.length;
 
   const prices =
-    safeListings
+    priceableListings
       .map(
         listing =>
           Number(
@@ -815,6 +844,8 @@ export function analyzeMarket(
     minimumPrice,
 
     maximumPrice,
+
+    foreignCurrencyListings,
 
     sellerIds:
       sellers
@@ -1150,7 +1181,10 @@ export async function getProductOpportunity(
         0,
 
       available_quantity:
-        availableQuantity
+        availableQuantity,
+
+      foreign_currency_listings:
+        market.foreignCurrencyListings
 
     },
 
