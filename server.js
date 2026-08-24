@@ -1,4 +1,5 @@
 import express from "express";
+import { supabaseRequest } from "./utils/supabase.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -69,67 +70,12 @@ console.log("======================================");
 // =====================================================
 // SUPABASE
 // =====================================================
-
-async function supabaseRequest(
-  endpoint,
-  options = {}
-) {
-
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/${endpoint}`,
-    {
-      ...options,
-
-      headers: {
-        apikey: SUPABASE_SECRET_KEY,
-
-        Authorization:
-          `Bearer ${SUPABASE_SECRET_KEY}`,
-
-        "Content-Type":
-          "application/json",
-
-        ...(options.headers || {})
-      }
-    }
-  );
-
-  const text =
-    await response.text();
-
-  let data;
-
-  try {
-
-    data =
-      text
-        ? JSON.parse(text)
-        : null;
-
-  } catch {
-
-    data = text;
-
-  }
-
-  if (!response.ok) {
-
-    const error =
-      new Error(
-        `Supabase ${response.status}: ${JSON.stringify(data)}`
-      );
-
-    error.status =
-      response.status;
-
-    error.data =
-      data;
-
-    throw error;
-  }
-
-  return data;
-}
+//
+// supabaseRequest() ahora vive en utils/supabase.js
+// (importado arriba). Se deja este encabezado de sección
+// para que el archivo siga siendo fácil de navegar.
+//
+// =====================================================
 
 
 // =====================================================
