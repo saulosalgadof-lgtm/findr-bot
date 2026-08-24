@@ -181,6 +181,31 @@ function calculateCompetitionScore({
 
 }) {
 
+  // ---------------------------------------------------
+  // 0 VENDEDORES
+  // ---------------------------------------------------
+  //
+  // 0 vendedores no es "sin competencia, excelente" — casi
+  // siempre significa que no hay mercado activo para este
+  // producto (confirmado por separado vía el manejo del 404
+  // "No winners found" en getProductOpportunity), no que sea
+  // una oportunidad libre de riesgo. Puntuar esto como el
+  // mejor caso posible premiaba productos sin ninguna señal
+  // real por encima de productos con competencia y precios
+  // reales confirmados. Se puntúa neutral en vez de máximo,
+  // igual que el resto del motor cuando no hay señal
+  // suficiente (ver calculatePriceScore).
+  // ---------------------------------------------------
+
+  if (
+    sellers === 0
+  ) {
+
+    return 50;
+
+  }
+
+
   let score = 100;
 
 
