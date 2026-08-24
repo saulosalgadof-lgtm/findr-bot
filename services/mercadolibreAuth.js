@@ -1,5 +1,5 @@
 // =====================================================
-// FINDR - MERCADO LIBRE AUTH SERVICE
+// FINDR - MERCADO LIBRE AUTH SERVICE.
 // =====================================================
 //
 // MAPA DEL ARCHIVO
