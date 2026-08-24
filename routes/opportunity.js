@@ -55,7 +55,7 @@
 // =====================================================
 
 import {
-  createMercadoLibreRequest
+  mercadoLibreRequest
 } from "../utils/mercadolibre.js";
 
 
@@ -869,7 +869,7 @@ async function getProductOpportunity(
   // ---------------------------------------------------
 
   const request =
-    createMercadoLibreRequest();
+    mercadoLibreRequest;
 
 
   const product =
