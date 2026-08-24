@@ -540,20 +540,8 @@ export function calculateFindrScore(
     );
 
 
-  const margin =
-    calculateMarginScore(
-      data
-    );
-
-
   const price =
     calculatePriceScore(
-      data
-    );
-
-
-  const sales =
-    calculateSalesScore(
       data
     );
 
@@ -565,24 +553,151 @@ export function calculateFindrScore(
 
 
   // ---------------------------------------------------
-  // WEIGHTED SCORE
+  // MARGIN — solo si hay un costo de adquisición real.
+  // ---------------------------------------------------
+  //
+  // Sin acquisitionCost no sabemos el margen: es
+  // DESCONOCIDO, no cero. Tratarlo como cero equivaldría a
+  // afirmar "confirmado que no hay margen", que es un dato
+  // inventado. Etapa 8 (costo de adquisición) todavía no
+  // existe, así que esto será null hasta entonces.
+  //
   // ---------------------------------------------------
 
-  const score =
+  const acquisitionCost =
+    Number(
+      data.acquisitionCost
+    ) || 0;
+
+  const marginKnown =
+    acquisitionCost > 0;
+
+  const margin =
+    marginKnown
+      ? calculateMarginScore(
+          data
+        )
+      : null;
+
+
+  // ---------------------------------------------------
+  // SALES — solo si hay señal real de volumen.
+  // ---------------------------------------------------
+  //
+  // Si soldQuantity Y availableQuantity son 0, no podemos
+  // distinguir "confirmado sin ventas ni stock" de
+  // "Mercado Libre no está devolviendo ese dato" (esto
+  // último es lo que vimos en producción: buy_box_winner
+  // null en publicaciones activas reales). Se trata como
+  // desconocido en vez de forzar el peor caso.
+  //
+  // ---------------------------------------------------
+
+  const totalUnits =
     (
-      demand * 0.25 +
-      competition * 0.20 +
-      margin * 0.20 +
-      price * 0.15 +
-      sales * 0.10 +
-      risk * 0.10
+      Number(
+        data.soldQuantity
+      ) || 0
+    )
+    +
+    (
+      Number(
+        data.availableQuantity
+      ) || 0
     );
 
+  const salesKnown =
+    totalUnits > 0;
+
+  const sales =
+    salesKnown
+      ? calculateSalesScore(
+          data
+        )
+      : null;
+
+
+  // ---------------------------------------------------
+  // WEIGHTED SCORE
+  // ---------------------------------------------------
+  //
+  // Los componentes desconocidos se excluyen de la suma
+  // ponderada y su peso se redistribuye proporcionalmente
+  // entre los componentes que sí tenemos. demand/competition/
+  // price/risk siempre son calculables (tienen defaults
+  // seguros), así que el peso conocido nunca baja de 0.70.
+  //
+  // ---------------------------------------------------
+
+  const WEIGHTS = {
+
+    demand: 0.25,
+
+    competition: 0.20,
+
+    margin: 0.20,
+
+    price: 0.15,
+
+    sales: 0.10,
+
+    risk: 0.10
+
+  };
+
+  const components = {
+
+    demand,
+
+    competition,
+
+    margin,
+
+    price,
+
+    sales,
+
+    risk
+
+  };
+
+  let weightedSum = 0;
+
+  let knownWeight = 0;
+
+  for (
+    const key of Object.keys(
+      components
+    )
+  ) {
+
+    const value =
+      components[key];
+
+    if (
+      value === null
+    ) {
+
+      continue;
+
+    }
+
+    weightedSum +=
+      value *
+      WEIGHTS[key];
+
+    knownWeight +=
+      WEIGHTS[key];
+
+  }
 
   const finalScore =
-    Math.round(
-      score
-    );
+    knownWeight > 0
+      ? Math.round(
+          weightedSum /
+          knownWeight
+        )
+      : 0;
 
 
   // ---------------------------------------------------
@@ -647,9 +762,11 @@ export function calculateFindrScore(
         ),
 
       margin:
-        Math.round(
-          margin
-        ),
+        marginKnown
+          ? Math.round(
+              margin
+            )
+          : null,
 
       price:
         Math.round(
@@ -657,9 +774,11 @@ export function calculateFindrScore(
         ),
 
       sales:
-        Math.round(
-          sales
-        ),
+        salesKnown
+          ? Math.round(
+              sales
+            )
+          : null,
 
       risk:
         Math.round(
