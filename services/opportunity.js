@@ -881,21 +881,50 @@ export async function getProductOpportunity(
   // ---------------------------------------------------
   // PRODUCT LISTINGS
   // ---------------------------------------------------
+  //
+  // Mercado Libre devuelve 404 "No winners found" en este
+  // endpoint cuando el producto de catálogo no tiene
+  // publicaciones ganando el buy box ahora mismo (confirmado
+  // en producción con MLM71177821: producto válido, sin
+  // competencia activa). Es un dato real -> 0 publicaciones,
+  // no un error que deba tumbar el análisis completo. Cualquier
+  // otro status (401, 403, 500...) sí se sigue propagando.
+  // ---------------------------------------------------
 
-  const listingsData =
-    await mercadoLibreRequest(
-      `/products/${encodeURIComponent(
-        productId
-      )}/items?limit=100`
+  let rawListings = [];
+
+  try {
+
+    const listingsData =
+      await mercadoLibreRequest(
+        `/products/${encodeURIComponent(
+          productId
+        )}/items?limit=100`
+      );
+
+    rawListings =
+      Array.isArray(
+        listingsData?.results
+      )
+        ? listingsData.results
+        : [];
+
+  } catch (error) {
+
+    if (
+      error.status !== 404
+    ) {
+
+      throw error;
+
+    }
+
+    console.log(
+      "Sin publicaciones/winners activos para",
+      productId
     );
 
-
-  const rawListings =
-    Array.isArray(
-      listingsData?.results
-    )
-      ? listingsData.results
-      : [];
+  }
 
 
   // ---------------------------------------------------
