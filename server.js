@@ -78,6 +78,8 @@ app.use(
 // server.js solamente registra las rutas.
 //
 
+mercadolibreAuthRoute(app);
+
 trendRoute(app);
 
 productRoute(app);
