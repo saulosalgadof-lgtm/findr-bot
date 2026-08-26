@@ -31,12 +31,16 @@ import {
 //
 // Endpoint:
 //
-// GET /hunter?q=iphone%2011&limit=10&min_score=65&top=5
+// GET /hunter?q=iphone%2011&limit=10&min_score=65&top=5&desired_margin=15
 //
 // limit: cuántos candidatos analiza (default 10, tope 30).
 // min_score: solo incluir resultados con findr.score >= este valor.
 // top: devolver como máximo esta cantidad de resultados.
-// Los tres son opcionales.
+// desired_margin: margen deseado (%). Si se da, cada resultado
+//   trae `pricing.target_acquisition_price` calculado con la
+//   comisión REAL de Mercado Libre (Etapa 8). Sin este parámetro,
+//   `pricing` sale null — nunca se inventa un margen por default.
+// Los cuatro son opcionales.
 //
 // =====================================================
 
@@ -111,7 +115,10 @@ export default function hunterRoute(
                 req.query.min_score,
 
               top:
-                req.query.top
+                req.query.top,
+
+              desiredMarginPercent:
+                req.query.desired_margin
             }
           );
 
