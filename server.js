@@ -48,6 +48,9 @@ import opportunityRoute
 import hunterRoute
   from "./routes/hunter.js";
 
+import pricingRoute
+  from "./routes/pricing.js";
+
 
 // =====================================================
 // 2. CONFIGURACIÓN
@@ -92,6 +95,8 @@ productRoute(app);
 opportunityRoute(app);
 
 hunterRoute(app);
+
+pricingRoute(app);
 
 
 // =====================================================
