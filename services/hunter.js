@@ -21,6 +21,8 @@
 //    ↓
 // ORDENAR por score descendente
 //    ↓
+// FILTRAR (min_score) / CORTAR (top) — opcional
+//    ↓
 // HUNT RESULT (scanned, opportunities_found, results, errors)
 //
 // No reimplementa nada de trend/opportunity — solo los
@@ -83,6 +85,54 @@ export async function huntOpportunities(
       ) || 10,
       30
     );
+
+  // -----------------------------------------------------
+  // FILTROS DE SALIDA (Etapa 6/7)
+  // -----------------------------------------------------
+  //
+  // `limit` (arriba) controla cuántos candidatos se ANALIZAN.
+  // `minScore` y `top` controlan cuántos de los YA ANALIZADOS
+  // se DEVUELVEN — son conceptos distintos a propósito, para
+  // no mezclar "cuánto trabajo hace el motor" con "cuánto
+  // querés ver". Ninguno de los dos filtra `scanned` ni
+  // `opportunities_found`: esos siguen describiendo el hunt
+  // completo, no lo que decidiste mostrar.
+  //
+  // Ambos son opcionales — sin ellos, /hunter se comporta
+  // exactamente igual que antes.
+  //
+  // -----------------------------------------------------
+
+  const minScore =
+    options.minScore !== undefined &&
+    options.minScore !== null &&
+    options.minScore !== "" &&
+    !Number.isNaN(
+      Number(
+        options.minScore
+      )
+    )
+      ? Number(
+          options.minScore
+        )
+      : null;
+
+  const top =
+    options.top !== undefined &&
+    options.top !== null &&
+    options.top !== "" &&
+    !Number.isNaN(
+      Number(
+        options.top
+      )
+    )
+      ? Math.max(
+          Number(
+            options.top
+          ),
+          0
+        )
+      : null;
 
 
   // ---------------------------------------------------
@@ -212,7 +262,40 @@ export async function huntOpportunities(
 
 
   // ---------------------------------------------------
-  // 2.5 RESULTADO
+  // 2.5 APLICAR min_score / top
+  // ---------------------------------------------------
+
+  let filteredResults =
+    results;
+
+  if (
+    minScore !== null
+  ) {
+
+    filteredResults =
+      filteredResults.filter(
+        result =>
+          result.findr.score >=
+          minScore
+      );
+
+  }
+
+  if (
+    top !== null
+  ) {
+
+    filteredResults =
+      filteredResults.slice(
+        0,
+        top
+      );
+
+  }
+
+
+  // ---------------------------------------------------
+  // 2.6 RESULTADO
   // ---------------------------------------------------
 
   return {
@@ -234,7 +317,8 @@ export async function huntOpportunities(
 
     errors,
 
-    results
+    results:
+      filteredResults
 
   };
 
