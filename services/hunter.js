@@ -134,6 +134,29 @@ export async function huntOpportunities(
         )
       : null;
 
+  // -----------------------------------------------------
+  // MARGEN DESEADO (Etapa 8)
+  // -----------------------------------------------------
+  //
+  // Opcional. Sin esto, cada producto analizado no trae
+  // `pricing` (nunca se inventa un margen por default).
+  //
+  // -----------------------------------------------------
+
+  const desiredMarginPercent =
+    options.desiredMarginPercent !== undefined &&
+    options.desiredMarginPercent !== null &&
+    options.desiredMarginPercent !== "" &&
+    !Number.isNaN(
+      Number(
+        options.desiredMarginPercent
+      )
+    )
+      ? Number(
+          options.desiredMarginPercent
+        )
+      : null;
+
 
   // ---------------------------------------------------
   // 2.1 CANDIDATOS
@@ -187,7 +210,13 @@ export async function huntOpportunities(
               index + 1,
 
             searchTotal:
-              trend.search_total
+              trend.search_total,
+
+            categoryId:
+              trend.domain?.category_id ||
+              null,
+
+            desiredMarginPercent
 
           }
         );

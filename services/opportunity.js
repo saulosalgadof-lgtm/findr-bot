@@ -16,9 +16,13 @@
 //    ↓
 // analyzeMarket()          → métricas del mercado
 //    ↓
+// getMercadoLibreFee() +
+// calculateTargetAcquisitionPrice() (services/pricing.js)
+//    → precio objetivo de compra (Etapa 8, opcional)
+//    ↓
 // calculateFindrScore()    → score 0-100 + veredicto
 //    ↓
-// OPPORTUNITY (product + market + findr + listings)
+// OPPORTUNITY (product + market + pricing + findr + listings)
 //
 // Exporta:
 //   - analyzeMarket(listings)
@@ -27,9 +31,8 @@
 //
 // Usado por:
 //   - routes/opportunity.js (/product-opportunity-v3, /findr-score-test)
-//   - futuro Hunter Engine (Etapa 5), que llamará
-//     getProductOpportunity() en loop sobre varios
-//     product_id sin pasar por HTTP.
+//   - services/hunter.js, que llama getProductOpportunity() en
+//     loop sobre varios product_id sin pasar por HTTP.
 //
 // =====================================================
 
@@ -41,6 +44,11 @@
 import {
   mercadoLibreRequest
 } from "../utils/mercadolibre.js";
+
+import {
+  getMercadoLibreFee,
+  calculateTargetAcquisitionPrice
+} from "./pricing.js";
 
 
 // =====================================================
@@ -1036,7 +1044,11 @@ export async function getProductOpportunity(
 
     searchTotal = 0,
 
-    acquisitionCost = 0
+    acquisitionCost = 0,
+
+    categoryId = null,
+
+    desiredMarginPercent = null
 
   } = context;
 
@@ -1240,6 +1252,101 @@ export async function getProductOpportunity(
 
 
   // ---------------------------------------------------
+  // PRECIO OBJETIVO DE COMPRA (Etapa 8)
+  // ---------------------------------------------------
+  //
+  // Solo se calcula si el llamador (el Hunter, o quien sea)
+  // proporcionó categoryId y desiredMarginPercent — ambos
+  // son datos que FINDR no puede adivinar por su cuenta.
+  // Sin ellos, `pricing` queda null en la respuesta en vez
+  // de inventar un margen o una comisión.
+  //
+  // Se calcula sobre market.averagePrice (precio promedio
+  // real de mercado), no sobre el mínimo — representa mejor
+  // "a cuánto se vende esto realmente", no "el más barato
+  // hoy". Queda expuesto en la respuesta cuál precio se usó.
+  //
+  // Un fallo acá (ej. Mercado Libre caído para ese endpoint)
+  // no debe tumbar el resto del análisis del producto.
+  //
+  // ---------------------------------------------------
+
+  let pricing = null;
+
+  if (
+    categoryId &&
+    desiredMarginPercent !== null &&
+    market.averagePrice
+  ) {
+
+    try {
+
+      const fee =
+        await getMercadoLibreFee(
+          market.averagePrice,
+          categoryId
+        );
+
+      if (
+        fee &&
+        fee.fee_amount !== null
+      ) {
+
+        const targetAcquisitionPrice =
+          calculateTargetAcquisitionPrice({
+
+            marketPrice:
+              market.averagePrice,
+
+            feeAmount:
+              fee.fee_amount,
+
+            desiredMarginPercent
+
+          });
+
+        pricing = {
+
+          based_on_price:
+            market.averagePrice,
+
+          listing_type_id:
+            fee.listing_type_id,
+
+          listing_type_name:
+            fee.listing_type_name,
+
+          commission_percentage:
+            fee.percentage_fee,
+
+          commission_amount:
+            fee.fee_amount,
+
+          desired_margin_percent:
+            desiredMarginPercent,
+
+          target_acquisition_price:
+            targetAcquisitionPrice
+
+        };
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "No se pudo calcular precio objetivo de compra para",
+        productId,
+        "-",
+        error.message
+      );
+
+    }
+
+  }
+
+
+  // ---------------------------------------------------
   // FINDR SCORE
   // ---------------------------------------------------
 
@@ -1331,6 +1438,8 @@ export async function getProductOpportunity(
         market.foreignCurrencyListings
 
     },
+
+    pricing,
 
     findr,
 
