@@ -51,6 +51,9 @@ import hunterRoute
 import pricingRoute
   from "./routes/pricing.js";
 
+import bargainRoute
+  from "./routes/bargain.js";
+
 
 // =====================================================
 // 2. CONFIGURACIÓN
@@ -97,6 +100,8 @@ opportunityRoute(app);
 hunterRoute(app);
 
 pricingRoute(app);
+
+bargainRoute(app);
 
 
 // =====================================================
@@ -289,6 +294,10 @@ app.listen(
 
     console.log(
       "✓ Hunter"
+    );
+
+    console.log(
+      "✓ Bargain Scan"
     );
 
     console.log(
