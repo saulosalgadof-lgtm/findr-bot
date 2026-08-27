@@ -200,6 +200,23 @@ function productSearchRoute(app) {
 
           });
 
+        // -------------------------------------------------
+        // Passthrough de diagnóstico: probar si Mercado Libre
+        // tiene productos de catálogo SEPARADOS para "usado"
+        // (distinto de filtrar publicaciones dentro de un
+        // mismo producto, que ya confirmamos que no filtra
+        // por condición en /products/{id}/items).
+        // -------------------------------------------------
+
+        if (req.query.condition) {
+
+          params.set(
+            "condition",
+            req.query.condition
+          );
+
+        }
+
 
         const data =
           await mercadoLibreRequest(
@@ -213,6 +230,10 @@ function productSearchRoute(app) {
             true,
 
           query,
+
+          condition_filter:
+            req.query.condition ||
+            null,
 
           total_results:
             data.paging?.total ||
