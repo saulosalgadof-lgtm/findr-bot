@@ -405,6 +405,23 @@ function productItemsRoute(app) {
 
           });
 
+        // -------------------------------------------------
+        // Passthrough de diagnóstico: forzar condition para
+        // confirmar si /products/{id}/items realmente
+        // devuelve TODAS las publicaciones activas, o solo
+        // un subconjunto (sospecha: solo "ganadores" del buy
+        // box, sesgado hacia nuevo).
+        // -------------------------------------------------
+
+        if (req.query.condition) {
+
+          params.set(
+            "condition",
+            req.query.condition
+          );
+
+        }
+
 
         const data =
           await mercadoLibreRequest(
@@ -421,6 +438,10 @@ function productItemsRoute(app) {
 
           product_id:
             productId,
+
+          condition_filter:
+            req.query.condition ||
+            null,
 
           total_results:
             data.paging?.total ||
