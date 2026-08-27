@@ -27,12 +27,16 @@
 // Exporta:
 //   - analyzeMarket(listings)
 //   - calculateFindrScore(data)
+//   - getProductListings(productId) — fetch + normalización de
+//     publicaciones, con el manejo del 404 "No winners found"
 //   - getProductOpportunity(productId, context)
 //
 // Usado por:
 //   - routes/opportunity.js (/product-opportunity-v3, /findr-score-test)
 //   - services/hunter.js, que llama getProductOpportunity() en
 //     loop sobre varios product_id sin pasar por HTTP.
+//   - services/bargain.js, que reusa getProductListings() en vez
+//     de duplicar el fetch de publicaciones.
 //
 // =====================================================
 
@@ -1033,42 +1037,11 @@ export function analyzeMarket(
 //
 // =====================================================
 
-export async function getProductOpportunity(
-  productId,
-  context = {}
+export async function getProductListings(
+  productId
 ) {
 
-  const {
-
-    trendRank = null,
-
-    searchTotal = 0,
-
-    acquisitionCost = 0,
-
-    categoryId = null,
-
-    desiredMarginPercent = null
-
-  } = context;
-
-
   // ---------------------------------------------------
-  // PRODUCT DETAIL
-  // ---------------------------------------------------
-
-  const product =
-    await mercadoLibreRequest(
-      `/products/${encodeURIComponent(
-        productId
-      )}`
-    );
-
-
-  // ---------------------------------------------------
-  // PRODUCT LISTINGS
-  // ---------------------------------------------------
-  //
   // Mercado Libre devuelve 404 "No winners found" en este
   // endpoint cuando el producto de catálogo no tiene
   // publicaciones ganando el buy box ahora mismo (confirmado
@@ -1118,67 +1091,114 @@ export async function getProductOpportunity(
   // NORMALIZE LISTINGS
   // ---------------------------------------------------
 
+  return rawListings.map(
+    listing => ({
+
+      item_id:
+        listing.item_id ||
+        null,
+
+      seller_id:
+        listing.seller_id ||
+        null,
+
+      price:
+        Number(
+          listing.price
+        ) || 0,
+
+      currency_id:
+        listing.currency_id ||
+        null,
+
+      condition:
+        listing.condition ||
+        null,
+
+      listing_type_id:
+        listing.listing_type_id ||
+        null,
+
+      official_store_id:
+        listing.official_store_id ||
+        null,
+
+      warranty:
+        listing.warranty ||
+        null,
+
+      shipping:
+        listing.shipping ||
+        null,
+
+      original_price:
+        listing.original_price ||
+        null,
+
+      accepts_mercadopago:
+        listing.accepts_mercadopago ||
+        false,
+
+      user_product_id:
+        listing.user_product_id ||
+        null,
+
+      tags:
+        Array.isArray(
+          listing.tags
+        )
+          ? listing.tags
+          : []
+
+    })
+  );
+
+}
+
+
+// =====================================================
+// 11B. PRODUCT OPPORTUNITY
+// =====================================================
+
+export async function getProductOpportunity(
+  productId,
+  context = {}
+) {
+
+  const {
+
+    trendRank = null,
+
+    searchTotal = 0,
+
+    acquisitionCost = 0,
+
+    categoryId = null,
+
+    desiredMarginPercent = null
+
+  } = context;
+
+
+  // ---------------------------------------------------
+  // PRODUCT DETAIL
+  // ---------------------------------------------------
+
+  const product =
+    await mercadoLibreRequest(
+      `/products/${encodeURIComponent(
+        productId
+      )}`
+    );
+
+
+  // ---------------------------------------------------
+  // PRODUCT LISTINGS
+  // ---------------------------------------------------
+
   const listings =
-    rawListings.map(
-      listing => ({
-
-        item_id:
-          listing.item_id ||
-          null,
-
-        seller_id:
-          listing.seller_id ||
-          null,
-
-        price:
-          Number(
-            listing.price
-          ) || 0,
-
-        currency_id:
-          listing.currency_id ||
-          null,
-
-        condition:
-          listing.condition ||
-          null,
-
-        listing_type_id:
-          listing.listing_type_id ||
-          null,
-
-        official_store_id:
-          listing.official_store_id ||
-          null,
-
-        warranty:
-          listing.warranty ||
-          null,
-
-        shipping:
-          listing.shipping ||
-          null,
-
-        original_price:
-          listing.original_price ||
-          null,
-
-        accepts_mercadopago:
-          listing.accepts_mercadopago ||
-          false,
-
-        user_product_id:
-          listing.user_product_id ||
-          null,
-
-        tags:
-          Array.isArray(
-            listing.tags
-          )
-            ? listing.tags
-            : []
-
-      })
+    await getProductListings(
+      productId
     );
 
 
